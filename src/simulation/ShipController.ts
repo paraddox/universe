@@ -132,18 +132,26 @@ export class ShipController {
         const weapon = hp.mountedModule!;
         weapon.update(dt);
         if (weapon.canFire()) {
-          // Rotate hardpoint position by ship yaw/pitch to get world-space origin
-          const cosY = Math.cos(this.hull.rotation.y);
-          const sinY = Math.sin(this.hull.rotation.y);
-          const cosP = Math.cos(this.hull.rotation.x);
-          const sinP = Math.sin(this.hull.rotation.x);
+          // Rotate hardpoint position by full Euler XYZ: Rz(roll) * Ry(yaw) * Rx(pitch)
+          const cp = Math.cos(this.hull.rotation.x), sp = Math.sin(this.hull.rotation.x);
+          const cy = Math.cos(this.hull.rotation.y), sy = Math.sin(this.hull.rotation.y);
+          const cr = Math.cos(this.hull.rotation.z), sr = Math.sin(this.hull.rotation.z);
           const lx = hp.position.x;
           const ly = hp.position.y;
           const lz = hp.position.z;
+          // Rx * (lx, ly, lz)
+          const rx_x = lx;
+          const rx_y = ly * cp - lz * sp;
+          const rx_z = ly * sp + lz * cp;
+          // Ry * (rx)
+          const ry_x = sy * rx_z + cy * rx_x;
+          const ry_y = rx_y;
+          const ry_z = cy * rx_z - sy * rx_x;
+          // Rz * (ry)
           const origin: Vec3 = {
-            x: this.hull.position.x + lx * cosY + lz * sinY,
-            y: this.hull.position.y + ly * cosP - lz * sinP,
-            z: this.hull.position.z - lx * sinY + lz * cosY,
+            x: this.hull.position.x + cr * ry_x - sr * ry_y,
+            y: this.hull.position.y + sr * ry_x + cr * ry_y,
+            z: this.hull.position.z + ry_z,
           };
           const fired = weapon.fire(origin, fwd);
           projectiles.push(...fired);
