@@ -7,11 +7,15 @@ export interface InputState {
   firing: boolean;
 }
 
+const SCROLL_STEP = 0.1;
+const MAX_THRUST = 1;
+
 export class InputManager {
   private keys: Set<string> = new Set();
   private mouseX: number = 0;
   private mouseY: number = 0;
   private mouseDown: boolean = false;
+  private thrustLevel: number = 0;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
 
@@ -20,6 +24,7 @@ export class InputManager {
   private boundMouseMove: (e: MouseEvent) => void;
   private boundMouseDown: () => void;
   private boundMouseUp: () => void;
+  private boundWheel: (e: WheelEvent) => void;
   private boundPointerLockChange: () => void;
 
   constructor() {
@@ -28,6 +33,7 @@ export class InputManager {
     this.boundMouseMove = this.onMouseMove.bind(this);
     this.boundMouseDown = this.onMouseDown.bind(this);
     this.boundMouseUp = this.onMouseUp.bind(this);
+    this.boundWheel = this.onWheel.bind(this);
     this.boundPointerLockChange = this.onPointerLockChange.bind(this);
   }
 
@@ -38,6 +44,7 @@ export class InputManager {
     document.addEventListener('mousemove', this.boundMouseMove);
     document.addEventListener('mousedown', this.boundMouseDown);
     document.addEventListener('mouseup', this.boundMouseUp);
+    document.addEventListener('wheel', this.boundWheel, { passive: false });
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
 
     canvas.addEventListener('click', () => {
@@ -53,16 +60,20 @@ export class InputManager {
     document.removeEventListener('mousemove', this.boundMouseMove);
     document.removeEventListener('mousedown', this.boundMouseDown);
     document.removeEventListener('mouseup', this.boundMouseUp);
+    document.removeEventListener('wheel', this.boundWheel);
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
   }
 
   getState(): InputState {
-    const thrust = this.keys.has('KeyW') ? 1 : 0;
+    const thrust = this.thrustLevel;
     const strafe = (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
     const verticalStrafe = (this.keys.has('Space') ? 1 : 0) - (this.keys.has('ShiftLeft') ? 1 : 0);
     const yaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
-    const pitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
-    const firing = this.mouseDown || this.keys.has('Space');
+    // W = nose up (negative pitch), S = nose down (positive pitch), plus mouse pitch
+    const keyPitch = (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
+    const mousePitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
+    const pitch = Math.max(-1, Math.min(1, keyPitch + mousePitch));
+    const firing = this.mouseDown;
 
     return { thrust, strafe, verticalStrafe, yaw, pitch, firing };
   }
@@ -88,6 +99,13 @@ export class InputManager {
 
   private onMouseUp(): void {
     this.mouseDown = false;
+  }
+
+  private onWheel(e: WheelEvent): void {
+    e.preventDefault();
+    // Scroll up (negative deltaY) = increase thrust, scroll down = decrease
+    this.thrustLevel -= Math.sign(e.deltaY) * SCROLL_STEP;
+    this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel));
   }
 
   private onPointerLockChange(): void {

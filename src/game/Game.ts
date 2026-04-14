@@ -99,6 +99,7 @@ export class Game {
     this.playerController.setYaw(state.yaw);
     this.playerController.setPitch(state.pitch);
     this.playerController.setFiring(state.firing);
+    this.thrustLevel = state.thrust;
     this.input.resetMouseDelta();
 
     // Simulation
@@ -161,6 +162,11 @@ export class Game {
   }
 
   private debugEl: HTMLDivElement | null = null;
+  private thrustLevel: number = 0;
+
+  private getThrustPercent(): number {
+    return Math.round(this.thrustLevel * 100);
+  }
 
   private updateDebugHUD(hull: any): void {
     if (!this.debugEl) {
@@ -173,6 +179,7 @@ export class Game {
       <div>Yaw: ${(hull.rotation.y * 180 / Math.PI).toFixed(1)}°</div>
       <div>Pitch: ${(hull.rotation.x * 180 / Math.PI).toFixed(1)}°</div>
       <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
+      <div>Thrust: ${this.getThrustPercent()}%</div>
       <div>Projectiles: ${this.projectileVisuals.size}</div>
     `;
   }
