@@ -16,35 +16,23 @@ export class CameraController {
   }
 
   update(shipPosition: THREE.Vector3, shipQuaternion: THREE.Quaternion, dt: number): void {
-    // Camera offset rotated by ship orientation — snaps instantly to rotation
+    // Camera offset rotated by ship orientation — position follows rotation instantly
     const rotatedOffset = this.offset.clone().applyQuaternion(shipQuaternion);
     const targetPos = shipPosition.clone().add(rotatedOffset);
 
-    // Smooth position follow only (no smoothing on orientation)
+    // Smooth position follow only
     const alpha = Math.min(1, POSITION_SMOOTHING * dt);
     this.smoothedPosition.lerp(targetPos, alpha);
     this.camera.position.copy(this.smoothedPosition);
 
-    // Look at ship — also uses quaternion for exact orientation
-    this.camera.quaternion.copy(shipQuaternion);
-    // Pitch the camera to look slightly down toward the ship
-    const lookDown = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(1, 0, 0),
-      -0.15,
-    );
-    this.camera.quaternion.multiply(lookDown);
+    // Always look at the ship
+    this.camera.lookAt(shipPosition);
   }
 
   reset(shipPosition: THREE.Vector3, shipQuaternion: THREE.Quaternion): void {
     const rotatedOffset = this.offset.clone().applyQuaternion(shipQuaternion);
     this.smoothedPosition.copy(shipPosition.clone().add(rotatedOffset));
     this.camera.position.copy(this.smoothedPosition);
-
-    this.camera.quaternion.copy(shipQuaternion);
-    const lookDown = new THREE.Quaternion().setFromAxisAngle(
-      new THREE.Vector3(1, 0, 0),
-      -0.15,
-    );
-    this.camera.quaternion.multiply(lookDown);
+    this.camera.lookAt(shipPosition);
   }
 }
