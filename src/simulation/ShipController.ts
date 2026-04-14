@@ -52,23 +52,36 @@ export class ShipController {
   private getForward(): Vec3 {
     const yaw = this.hull.rotation.y;
     const pitch = this.hull.rotation.x;
-    // Matches Three.js Euler 'XYZ' rotation of (0,0,1)
-    // Ry(yaw) applied to +Z: x = sin(yaw)*cos(pitch), z = cos(yaw)*cos(pitch)
-    // Rx(pitch) applied to +Z: y = -sin(pitch)
+    const roll = this.hull.rotation.z;
+    // Full Euler XYZ rotation: Rz(roll) * Ry(yaw) * Rx(pitch) * (0,0,1)
+    const cp = Math.cos(pitch), sp = Math.sin(pitch);
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cr = Math.cos(roll), sr = Math.sin(roll);
+    // Rx(pitch) * (0,0,1) = (0, -sp, cp)
+    const rx_x = 0, rx_y = -sp, rx_z = cp;
+    // Ry(yaw) * (rx)
+    const ry_x = sy * rx_z, ry_y = rx_y, ry_z = cy * rx_z;
+    // Rz(roll) * (ry)
     return {
-      x: Math.sin(yaw) * Math.cos(pitch),
-      y: -Math.sin(pitch),
-      z: Math.cos(yaw) * Math.cos(pitch),
+      x: cr * ry_x - sr * ry_y,
+      y: sr * ry_x + cr * ry_y,
+      z: ry_z,
     };
   }
 
   private getRight(): Vec3 {
     const yaw = this.hull.rotation.y;
-    // Ry(yaw) applied to +X (initial right): x = cos(yaw), z = -sin(yaw)
+    const roll = this.hull.rotation.z;
+    // Rz(roll) * Ry(yaw) * (1,0,0)
+    const cy = Math.cos(yaw), sy = Math.sin(yaw);
+    const cr = Math.cos(roll), sr = Math.sin(roll);
+    // Ry(yaw) * (1,0,0) = (cy, 0, -sy)
+    const ry_x = cy, ry_y = 0, ry_z = -sy;
+    // Rz(roll) * (ry)
     return {
-      x: Math.cos(yaw),
-      y: 0,
-      z: -Math.sin(yaw),
+      x: cr * ry_x - sr * ry_y,
+      y: sr * ry_x + cr * ry_y,
+      z: ry_z,
     };
   }
 
