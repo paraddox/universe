@@ -1,6 +1,6 @@
 import type { ShipHull } from './ShipHull.js';
 import type { ProjectileData, Vec3 } from './WeaponModule.js';
-import { applyRotation } from './RotationMath.js';
+import { Quat } from './Quat.js';
 
 const DAMPING = 0.98;
 
@@ -50,29 +50,30 @@ export class ShipController {
     this.firing = active;
   }
 
-  private getForward(): Vec3 {
-    return applyRotation(
-      { x: 0, y: 0, z: 1 },
-      this.hull.rotation.x,
-      this.hull.rotation.y,
-      this.hull.rotation.z,
-    );
+  getForward(): Vec3 {
+    return this.hull.orientation.rotateVector({ x: 0, y: 0, z: 1 });
   }
 
-  private getRight(): Vec3 {
-    return applyRotation(
-      { x: 1, y: 0, z: 0 },
-      this.hull.rotation.x,
-      this.hull.rotation.y,
-      this.hull.rotation.z,
-    );
+  getRight(): Vec3 {
+    return this.hull.orientation.rotateVector({ x: 1, y: 0, z: 0 });
   }
 
   update(dt: number): { projectiles: ProjectileData[] } {
-    // Rotation
-    this.hull.rotation.y += this.yawInput * this.hull.turnRate * dt;
-    this.hull.rotation.x += this.pitchInput * this.hull.turnRate * dt;
-    this.hull.rotation.z += this.rollInput * this.hull.turnRate * dt;
+    // Apply local-axis rotations via quaternion composition
+    const turnDelta = this.hull.turnRate * dt;
+    if (this.yawInput !== 0) {
+      const q = Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, this.yawInput * turnDelta);
+      this.hull.orientation = this.hull.orientation.multiply(q);
+    }
+    if (this.pitchInput !== 0) {
+      const q = Quat.fromAxisAngle({ x: 1, y: 0, z: 0 }, this.pitchInput * turnDelta);
+      this.hull.orientation = this.hull.orientation.multiply(q);
+    }
+    if (this.rollInput !== 0) {
+      const q = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, this.rollInput * turnDelta);
+      this.hull.orientation = this.hull.orientation.multiply(q);
+    }
+    this.hull.orientation.normalize();
 
     // Acceleration
     const forward = this.getForward();
@@ -115,13 +116,8 @@ export class ShipController {
         const weapon = hp.mountedModule!;
         weapon.update(dt);
         if (weapon.canFire()) {
-          // Rotate hardpoint local position to world space
-          const worldOffset = applyRotation(
-            hp.position,
-            this.hull.rotation.x,
-            this.hull.rotation.y,
-            this.hull.rotation.z,
-          );
+          // Rotate hardpoint local position to world space using quaternion
+          const worldOffset = this.hull.orientation.rotateVector(hp.position);
           const origin: Vec3 = {
             x: this.hull.position.x + worldOffset.x,
             y: this.hull.position.y + worldOffset.y,

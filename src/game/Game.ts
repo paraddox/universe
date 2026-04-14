@@ -1,4 +1,4 @@
-import { Vector3, Euler, LineBasicMaterial, BufferGeometry, Line, Float32BufferAttribute, Color } from 'three';
+import { Vector3, Quaternion as ThreeQuat } from 'three';
 import { GameRenderer } from '../render/GameRenderer.js';
 import { InputManager } from '../input/InputManager.js';
 import { ShipController } from '../simulation/ShipController.js';
@@ -6,6 +6,7 @@ import { ProjectileSystem } from '../simulation/ProjectileSystem.js';
 import { Projectile } from '../simulation/Projectile.js';
 import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
+import { LineBasicMaterial, BufferGeometry, Line, Float32BufferAttribute, Color } from 'three';
 
 interface ProjectileVisual {
   meshId: number;
@@ -66,12 +67,14 @@ export class Game {
       this.playerController.hull.position.y,
       this.playerController.hull.position.z,
     );
-    const rot = new Euler(
-      this.playerController.hull.rotation.x,
-      this.playerController.hull.rotation.y,
-      this.playerController.hull.rotation.z,
-    );
-    this.renderer.cameraController.reset(pos, rot);
+    const quat = this.syncQuaternion();
+    this.renderer.cameraController.reset(pos, quat);
+  }
+
+  /** Sync simulation quaternion to Three.js quaternion */
+  private syncQuaternion(): ThreeQuat {
+    const o = this.playerController.hull.orientation;
+    return new ThreeQuat(o.x, o.y, o.z, o.w);
   }
 
   start(): void {
@@ -143,20 +146,21 @@ export class Game {
       this.projectileVisuals.delete(id);
     }
 
-    // Sync player mesh
+    // Sync player mesh position + orientation
     const hull = this.playerController.hull;
     this.playerMesh.position.set(hull.position.x, hull.position.y, hull.position.z);
-    this.playerMesh.rotation.set(hull.rotation.x, hull.rotation.y, hull.rotation.z);
+    const q = this.syncQuaternion();
+    this.playerMesh.quaternion.copy(q);
 
     // Camera
     this.renderer.cameraController.update(
       this.playerMesh.position,
-      this.playerMesh.rotation,
+      q,
       dt,
     );
 
     // Debug HUD
-    this.updateDebugHUD(hull);
+    this.updateDebugHUD();
 
     // Render
     this.renderer.render();
@@ -169,16 +173,14 @@ export class Game {
     return Math.round(this.thrustLevel * 100);
   }
 
-  private updateDebugHUD(hull: any): void {
+  private updateDebugHUD(): void {
     if (!this.debugEl) {
       this.debugEl = document.createElement('div');
       this.debugEl.style.cssText = 'position:fixed;top:10px;right:10px;color:#0f0;font-family:monospace;font-size:12px;pointer-events:none;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;';
       document.body.appendChild(this.debugEl);
     }
-    const fwd = (this.playerController as any).getForward();
+    const fwd = this.playerController.getForward();
     this.debugEl.innerHTML = `
-      <div>Yaw: ${(hull.rotation.y * 180 / Math.PI).toFixed(1)}°</div>
-      <div>Pitch: ${(hull.rotation.x * 180 / Math.PI).toFixed(1)}°</div>
       <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
       <div>Thrust: ${this.getThrustPercent()}%</div>
       <div>Projectiles: ${this.projectileVisuals.size}</div>

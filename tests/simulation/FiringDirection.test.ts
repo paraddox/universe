@@ -29,7 +29,6 @@ describe('ShipController firing direction', () => {
 
     expect(result.projectiles.length).toBe(1);
     const vel = result.projectiles[0].velocity;
-    // Forward is +Z, so velocity.z should be dominant and positive
     expect(vel.z).toBeGreaterThan(70);
     expect(Math.abs(vel.x)).toBeLessThan(1);
   });
@@ -40,22 +39,17 @@ describe('ShipController firing direction', () => {
     hull.mountWeapon('wp', new KineticCannon('light', 'player'));
 
     const ctrl = new ShipController(hull);
-
-    // Rotate the ship 90 degrees right (positive yaw)
-    // With turnRate=3.0, we need enough time: yaw=1, dt=1.0 → rotation = 3.0 rad ≈ 172°
+    // Rotate ~172° right
     ctrl.setYaw(1);
     ctrl.update(1.0);
 
-    // Now fire (stop rotating first for clean test)
     ctrl.setYaw(0);
     ctrl.setFiring(true);
     const result = ctrl.update(0.01);
 
     expect(result.projectiles.length).toBe(1);
     const vel = result.projectiles[0].velocity;
-    // After ~172° yaw, forward should be roughly -Z, not +Z
     expect(vel.z).toBeLessThan(0);
-    // And significant X component
     expect(Math.abs(vel.x)).toBeGreaterThan(10);
   });
 
@@ -65,42 +59,34 @@ describe('ShipController firing direction', () => {
     hull.mountWeapon('wp', new KineticCannon('light', 'player'));
 
     const ctrl = new ShipController(hull);
-
-    // Fire in default direction
     ctrl.setFiring(true);
     const result1 = ctrl.update(0.01);
     const vel1 = result1.projectiles[0].velocity;
 
-    // Wait for cooldown
     ctrl.setFiring(false);
     ctrl.update(0.2);
 
-    // Rotate
     ctrl.setYaw(1);
     ctrl.update(0.5);
     ctrl.setYaw(0);
 
-    // Fire again
     ctrl.setFiring(true);
     const result2 = ctrl.update(0.01);
     const vel2 = result2.projectiles[0].velocity;
 
-    // Directions should differ
     const dot = vel1.x * vel2.x + vel1.y * vel2.y + vel1.z * vel2.z;
-    // If directions are the same, dot product ≈ 80*80 = 6400
-    // After rotation, dot should be much less
     expect(dot).toBeLessThan(6000);
   });
 
-  it('getForward returns correct direction at 90 degree yaw', () => {
+  it('getForward at 90 degree yaw matches quaternion', () => {
     const hull = makeFighterHull();
+    // Rotate 90° right via controller
     const ctrl = new ShipController(hull);
+    ctrl.setYaw(1);
+    // turnRate=3.0, need ~0.5236s for π/2
+    ctrl.update(Math.PI / 2 / 3.0);
 
-    // Manually set rotation to 90 degrees (π/2 radians)
-    hull.rotation.y = Math.PI / 2;
-    const fwd = (ctrl as any).getForward();
-
-    // At yaw=π/2: forward should be (+1, 0, 0) — Three.js Ry convention
+    const fwd = ctrl.getForward();
     expect(fwd.x).toBeCloseTo(1, 2);
     expect(fwd.y).toBeCloseTo(0, 2);
     expect(fwd.z).toBeCloseTo(0, 2);

@@ -72,7 +72,9 @@ describe('ShipController', () => {
     const ctrl = new ShipController(hull);
     ctrl.setYaw(1);
     ctrl.update(0.1);
-    expect(hull.rotation.y).toBeGreaterThan(0);
+    // After yaw, forward should have a positive X component
+    const fwd = ctrl.getForward();
+    expect(fwd.x).toBeGreaterThan(0);
   });
 
   it('pitch input rotates the ship', () => {
@@ -80,7 +82,9 @@ describe('ShipController', () => {
     const ctrl = new ShipController(hull);
     ctrl.setPitch(1);
     ctrl.update(0.1);
-    expect(hull.rotation.x).toBeGreaterThan(0);
+    // After pitch, forward should have a negative Y component (nose down)
+    const fwd = ctrl.getForward();
+    expect(fwd.y).toBeLessThan(0);
   });
 
   it('firing with mounted weapons produces projectiles', () => {

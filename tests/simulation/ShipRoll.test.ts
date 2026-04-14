@@ -15,26 +15,32 @@ function makeHull(): ShipHull {
 }
 
 describe('Ship roll', () => {
-  it('positive roll input rotates ship around Z axis', () => {
+  it('positive roll input tilts the ship clockwise', () => {
     const hull = makeHull();
     const ctrl = new ShipController(hull);
     ctrl.setRoll(1);
     ctrl.update(0.1);
-    expect(hull.rotation.z).toBeGreaterThan(0);
+    // After roll, the right vector should have a positive Y component
+    const right = ctrl.getRight();
+    expect(right.y).toBeGreaterThan(0);
   });
 
-  it('negative roll input rotates ship around Z axis in opposite direction', () => {
+  it('negative roll input tilts the ship counter-clockwise', () => {
     const hull = makeHull();
     const ctrl = new ShipController(hull);
     ctrl.setRoll(-1);
     ctrl.update(0.1);
-    expect(hull.rotation.z).toBeLessThan(0);
+    const right = ctrl.getRight();
+    expect(right.y).toBeLessThan(0);
   });
 
-  it('no roll input keeps rotation.z at zero', () => {
+  it('no roll input keeps orientation unchanged', () => {
     const hull = makeHull();
     const ctrl = new ShipController(hull);
     ctrl.update(0.1);
-    expect(hull.rotation.z).toBeCloseTo(0, 5);
+    const fwd = ctrl.getForward();
+    expect(fwd.x).toBeCloseTo(0, 5);
+    expect(fwd.y).toBeCloseTo(0, 5);
+    expect(fwd.z).toBeCloseTo(1, 5);
   });
 });

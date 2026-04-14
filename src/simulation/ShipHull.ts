@@ -1,5 +1,6 @@
 import { Hardpoint } from './Hardpoint.js';
 import type { WeaponModule, Vec3 } from './WeaponModule.js';
+import { Quat } from './Quat.js';
 
 export interface ShipHullConfig {
   id: string;
@@ -22,7 +23,7 @@ export class ShipHull {
   hardpoints: Hardpoint[];
   position: Vec3;
   velocity: Vec3;
-  rotation: Vec3;
+  orientation: Quat;
 
   constructor(config: ShipHullConfig) {
     this.id = config.id;
@@ -35,7 +36,7 @@ export class ShipHull {
     this.hardpoints = [];
     this.position = { x: 0, y: 0, z: 0 };
     this.velocity = { x: 0, y: 0, z: 0 };
-    this.rotation = { x: 0, y: 0, z: 0 };
+    this.orientation = Quat.identity();
   }
 
   addHardpoint(hardpoint: Hardpoint): void {

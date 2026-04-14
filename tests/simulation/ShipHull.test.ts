@@ -86,7 +86,10 @@ describe('ShipHull', () => {
     expect(hull.hardpoints).toEqual([]);
     expect(hull.position).toEqual({ x: 0, y: 0, z: 0 });
     expect(hull.velocity).toEqual({ x: 0, y: 0, z: 0 });
-    expect(hull.rotation).toEqual({ x: 0, y: 0, z: 0 });
+    expect(hull.orientation.x).toBeCloseTo(0, 5);
+    expect(hull.orientation.y).toBeCloseTo(0, 5);
+    expect(hull.orientation.z).toBeCloseTo(0, 5);
+    expect(hull.orientation.w).toBeCloseTo(1, 5);
   });
 
   it('adds hardpoints and retrieves them by id', () => {

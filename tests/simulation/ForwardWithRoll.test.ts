@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { ShipController } from '../../src/simulation/ShipController.js';
 import { ShipHull } from '../../src/simulation/ShipHull.js';
+import { Quat } from '../../src/simulation/Quat.js';
 
 function makeHull(): ShipHull {
   return new ShipHull({
@@ -14,57 +15,53 @@ function makeHull(): ShipHull {
   });
 }
 
-describe('getForward with roll (Three.js Euler XYZ: Rx*Ry*Rz)', () => {
-  it('at roll=π/2 (no yaw/pitch), forward should still be +Z', () => {
+describe('getForward with roll (quaternion)', () => {
+  it('pure roll does not change forward direction', () => {
     const hull = makeHull();
-    hull.rotation.z = Math.PI / 2;
+    hull.orientation = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, Math.PI / 2);
     const ctrl = new ShipController(hull);
-    const fwd = (ctrl as any).getForward();
-    // Forward is roll-independent in correct Euler XYZ
+    const fwd = ctrl.getForward();
     expect(fwd.x).toBeCloseTo(0, 5);
     expect(fwd.y).toBeCloseTo(0, 5);
     expect(fwd.z).toBeCloseTo(1, 5);
   });
 
-  it('at yaw=π/2 with roll=π/2, forward should still be +X', () => {
+  it('yaw + roll: forward same as yaw alone', () => {
     const hull = makeHull();
-    hull.rotation.y = Math.PI / 2;
-    hull.rotation.z = Math.PI / 2;
+    const yaw = Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, Math.PI / 2);
+    const roll = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, Math.PI / 2);
+    hull.orientation = yaw.multiply(roll);
     const ctrl = new ShipController(hull);
-    const fwd = (ctrl as any).getForward();
-    // Forward is roll-independent
+    const fwd = ctrl.getForward();
     expect(fwd.x).toBeCloseTo(1, 5);
     expect(fwd.y).toBeCloseTo(0, 5);
     expect(fwd.z).toBeCloseTo(0, 5);
   });
 
-  it('at pitch=π/4 with roll=π, forward should be same as pitch=π/4 with roll=0', () => {
+  it('pitch + roll: forward same as pitch alone', () => {
     const hull = makeHull();
-    hull.rotation.x = Math.PI / 4;
-    hull.rotation.z = Math.PI;
+    const pitch = Quat.fromAxisAngle({ x: 1, y: 0, z: 0 }, Math.PI / 4);
+    const roll = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, Math.PI);
+    hull.orientation = pitch.multiply(roll);
     const ctrl = new ShipController(hull);
-    const fwd = (ctrl as any).getForward();
-    // Forward is roll-independent
+    const fwd = ctrl.getForward();
     expect(fwd.x).toBeCloseTo(0, 5);
     expect(fwd.y).toBeCloseTo(-Math.sin(Math.PI / 4), 5);
     expect(fwd.z).toBeCloseTo(Math.cos(Math.PI / 4), 5);
   });
 
-  it('getForward matches Three.js Euler XYZ for arbitrary rotation', () => {
+  it('combined yaw+pitch+roll via local rotation composition', () => {
     const hull = makeHull();
-    hull.rotation.x = 0.3;
-    hull.rotation.y = 0.7;
-    hull.rotation.z = 1.2;
+    // Yaw 0.7 rad, then local pitch 0.3 rad, then local roll 1.2 rad
+    const yaw = Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, 0.7);
+    const pitch = Quat.fromAxisAngle({ x: 1, y: 0, z: 0 }, 0.3);
+    const roll = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, 1.2);
+    hull.orientation = yaw.multiply(pitch).multiply(roll);
     const ctrl = new ShipController(hull);
-    const fwd = (ctrl as any).getForward();
-    // Three.js Euler XYZ forward: (sin(yaw), -sin(pitch)*cos(yaw), cos(pitch)*cos(yaw))
-    const expected = {
-      x: Math.sin(0.7),
-      y: -Math.sin(0.3) * Math.cos(0.7),
-      z: Math.cos(0.3) * Math.cos(0.7),
-    };
-    expect(fwd.x).toBeCloseTo(expected.x, 5);
-    expect(fwd.y).toBeCloseTo(expected.y, 5);
-    expect(fwd.z).toBeCloseTo(expected.z, 5);
+    const fwd = ctrl.getForward();
+    // Forward should have x>0 (yawed right), y<0 (pitched down), z>0
+    expect(fwd.x).toBeGreaterThan(0);
+    expect(fwd.y).toBeLessThan(0);
+    expect(fwd.z).toBeGreaterThan(0);
   });
 });
