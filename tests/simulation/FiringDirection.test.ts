@@ -100,8 +100,8 @@ describe('ShipController firing direction', () => {
     hull.rotation.y = Math.PI / 2;
     const fwd = (ctrl as any).getForward();
 
-    // At yaw=π/2: forward should be (-1, 0, 0) in XZ plane
-    expect(fwd.x).toBeCloseTo(-1, 2);
+    // At yaw=π/2: forward should be (+1, 0, 0) — Three.js Ry convention
+    expect(fwd.x).toBeCloseTo(1, 2);
     expect(fwd.y).toBeCloseTo(0, 2);
     expect(fwd.z).toBeCloseTo(0, 2);
   });

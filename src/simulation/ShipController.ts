@@ -47,19 +47,23 @@ export class ShipController {
   private getForward(): Vec3 {
     const yaw = this.hull.rotation.y;
     const pitch = this.hull.rotation.x;
+    // Matches Three.js Euler 'XYZ' rotation of (0,0,1)
+    // Ry(yaw) applied to +Z: x = sin(yaw)*cos(pitch), z = cos(yaw)*cos(pitch)
+    // Rx(pitch) applied to +Z: y = -sin(pitch)
     return {
-      x: -Math.sin(yaw) * Math.cos(pitch),
-      y: Math.sin(pitch),
+      x: Math.sin(yaw) * Math.cos(pitch),
+      y: -Math.sin(pitch),
       z: Math.cos(yaw) * Math.cos(pitch),
     };
   }
 
   private getRight(): Vec3 {
     const yaw = this.hull.rotation.y;
+    // Ry(yaw) applied to +X (initial right): x = cos(yaw), z = -sin(yaw)
     return {
       x: Math.cos(yaw),
       y: 0,
-      z: Math.sin(yaw),
+      z: -Math.sin(yaw),
     };
   }
 
