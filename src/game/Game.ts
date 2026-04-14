@@ -98,6 +98,7 @@ export class Game {
     this.playerController.setStrafe(state.strafe);
     this.playerController.setYaw(state.yaw);
     this.playerController.setPitch(state.pitch);
+    this.playerController.setRoll(state.roll);
     this.playerController.setFiring(state.firing);
     this.thrustLevel = state.thrust;
     this.input.resetMouseDelta();

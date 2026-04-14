@@ -4,6 +4,7 @@ export interface InputState {
   verticalStrafe: number;
   yaw: number;
   pitch: number;
+  roll: number;
   firing: boolean;
 }
 
@@ -73,9 +74,10 @@ export class InputManager {
     const keyPitch = (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
     const mousePitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
     const pitch = Math.max(-1, Math.min(1, keyPitch + mousePitch));
+    const roll = (this.keys.has('KeyQ') ? 1 : 0) - (this.keys.has('KeyE') ? 1 : 0);
     const firing = this.mouseDown;
 
-    return { thrust, strafe, verticalStrafe, yaw, pitch, firing };
+    return { thrust, strafe, verticalStrafe, yaw, pitch, roll, firing };
   }
 
   private onKeyDown(e: KeyboardEvent): void {

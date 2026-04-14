@@ -29,6 +29,7 @@ overlay.innerHTML = `
     <div style="color: #aaccff; font-size: 16px; margin-bottom: 8px;">UNIVERSE</div>
     <div>W/S — Nose Down / Up</div>
     <div>A/D — Strafe Left/Right</div>
+    <div>Q/E — Roll Left/Right</div>
     <div>Mouse — Aim (click to capture)</div>
     <div>Scroll — Thrust</div>
     <div>Left Click — Fire Weapons</div>

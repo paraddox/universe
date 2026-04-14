@@ -14,6 +14,7 @@ export class ShipController {
   verticalStrafe: number = 0;
   yawInput: number = 0;
   pitchInput: number = 0;
+  rollInput: number = 0;
   firing: boolean = false;
 
   constructor(hull: ShipHull) {
@@ -38,6 +39,10 @@ export class ShipController {
 
   setPitch(value: number): void {
     this.pitchInput = clamp(value, -1, 1);
+  }
+
+  setRoll(value: number): void {
+    this.rollInput = clamp(value, -1, 1);
   }
 
   setFiring(active: boolean): void {
@@ -71,6 +76,7 @@ export class ShipController {
     // Rotation
     this.hull.rotation.y += this.yawInput * this.hull.turnRate * dt;
     this.hull.rotation.x += this.pitchInput * this.hull.turnRate * dt;
+    this.hull.rotation.z += this.rollInput * this.hull.turnRate * dt;
 
     // Acceleration
     const forward = this.getForward();
