@@ -3,7 +3,6 @@ import type { ProjectileData, Vec3 } from './WeaponModule.js';
 import { Quat } from './Quat.js';
 
 const DAMPING = 0.98;
-const STABILIZATION_RATE = 2.0; // rad/s — how fast ship auto-levels
 
 function clamp(value: number, min: number, max: number): number {
   return Math.max(min, Math.min(max, value));
@@ -75,32 +74,6 @@ export class ShipController {
       this.hull.orientation = this.hull.orientation.multiply(q);
     }
     this.hull.orientation.normalize();
-
-    // Auto-stabilization: when no pitch/roll input, gradually align local up with world up
-    if (this.pitchInput === 0 && this.rollInput === 0) {
-      const localUp: Vec3 = this.hull.orientation.rotateVector({ x: 0, y: 1, z: 0 });
-      const worldUp: Vec3 = { x: 0, y: 1, z: 0 };
-      const dot = localUp.x * worldUp.x + localUp.y * worldUp.y + localUp.z * worldUp.z;
-      if (dot < 0.9999) {
-        const axis: Vec3 = {
-          x: localUp.y * worldUp.z - localUp.z * worldUp.y,
-          y: localUp.z * worldUp.x - localUp.x * worldUp.z,
-          z: localUp.x * worldUp.y - localUp.y * worldUp.x,
-        };
-        const axisLen = Math.sqrt(axis.x * axis.x + axis.y * axis.y + axis.z * axis.z);
-        if (axisLen > 0.0001) {
-          const angle = Math.acos(Math.min(1, Math.max(-1, dot)));
-          const correction = Math.min(angle, STABILIZATION_RATE * dt);
-          const correctionQuat = Quat.fromAxisAngle(
-            { x: axis.x / axisLen, y: axis.y / axisLen, z: axis.z / axisLen },
-            correction,
-          );
-          // World-space rotation = left multiply
-          this.hull.orientation = correctionQuat.multiply(this.hull.orientation);
-          this.hull.orientation.normalize();
-        }
-      }
-    }
 
     // Acceleration
     const forward = this.getForward();
