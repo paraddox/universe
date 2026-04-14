@@ -58,7 +58,7 @@ export class ShipController {
     const cy = Math.cos(yaw), sy = Math.sin(yaw);
     const cr = Math.cos(roll), sr = Math.sin(roll);
     // Rx(pitch) * (0,0,1) = (0, -sp, cp)
-    const rx_x = 0, rx_y = -sp, rx_z = cp;
+    const rx_y = -sp, rx_z = cp;
     // Ry(yaw) * (rx)
     const ry_x = sy * rx_z, ry_y = rx_y, ry_z = cy * rx_z;
     // Rz(roll) * (ry)
