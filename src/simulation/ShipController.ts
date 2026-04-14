@@ -1,5 +1,6 @@
 import type { ShipHull } from './ShipHull.js';
 import type { ProjectileData, Vec3 } from './WeaponModule.js';
+import { applyRotation } from './RotationMath.js';
 
 const DAMPING = 0.98;
 
@@ -50,39 +51,21 @@ export class ShipController {
   }
 
   private getForward(): Vec3 {
-    const yaw = this.hull.rotation.y;
-    const pitch = this.hull.rotation.x;
-    const roll = this.hull.rotation.z;
-    // Full Euler XYZ rotation: Rz(roll) * Ry(yaw) * Rx(pitch) * (0,0,1)
-    const cp = Math.cos(pitch), sp = Math.sin(pitch);
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cr = Math.cos(roll), sr = Math.sin(roll);
-    // Rx(pitch) * (0,0,1) = (0, -sp, cp)
-    const rx_y = -sp, rx_z = cp;
-    // Ry(yaw) * (rx)
-    const ry_x = sy * rx_z, ry_y = rx_y, ry_z = cy * rx_z;
-    // Rz(roll) * (ry)
-    return {
-      x: cr * ry_x - sr * ry_y,
-      y: sr * ry_x + cr * ry_y,
-      z: ry_z,
-    };
+    return applyRotation(
+      { x: 0, y: 0, z: 1 },
+      this.hull.rotation.x,
+      this.hull.rotation.y,
+      this.hull.rotation.z,
+    );
   }
 
   private getRight(): Vec3 {
-    const yaw = this.hull.rotation.y;
-    const roll = this.hull.rotation.z;
-    // Rz(roll) * Ry(yaw) * (1,0,0)
-    const cy = Math.cos(yaw), sy = Math.sin(yaw);
-    const cr = Math.cos(roll), sr = Math.sin(roll);
-    // Ry(yaw) * (1,0,0) = (cy, 0, -sy)
-    const ry_x = cy, ry_y = 0, ry_z = -sy;
-    // Rz(roll) * (ry)
-    return {
-      x: cr * ry_x - sr * ry_y,
-      y: sr * ry_x + cr * ry_y,
-      z: ry_z,
-    };
+    return applyRotation(
+      { x: 1, y: 0, z: 0 },
+      this.hull.rotation.x,
+      this.hull.rotation.y,
+      this.hull.rotation.z,
+    );
   }
 
   update(dt: number): { projectiles: ProjectileData[] } {
@@ -97,7 +80,7 @@ export class ShipController {
     const acceleration = this.hull.maxSpeed / this.hull.mass;
 
     this.hull.velocity.x += (forward.x * this.thrust + right.x * this.strafe) * acceleration * dt;
-    this.hull.velocity.y += (forward.y * this.thrust + this.verticalStrafe) * acceleration * dt;
+    this.hull.velocity.y += (forward.y * this.thrust + right.y * this.strafe) * acceleration * dt;
     this.hull.velocity.z += (forward.z * this.thrust + right.z * this.strafe) * acceleration * dt;
 
     // Damping when no thrust
@@ -132,26 +115,17 @@ export class ShipController {
         const weapon = hp.mountedModule!;
         weapon.update(dt);
         if (weapon.canFire()) {
-          // Rotate hardpoint position by full Euler XYZ: Rz(roll) * Ry(yaw) * Rx(pitch)
-          const cp = Math.cos(this.hull.rotation.x), sp = Math.sin(this.hull.rotation.x);
-          const cy = Math.cos(this.hull.rotation.y), sy = Math.sin(this.hull.rotation.y);
-          const cr = Math.cos(this.hull.rotation.z), sr = Math.sin(this.hull.rotation.z);
-          const lx = hp.position.x;
-          const ly = hp.position.y;
-          const lz = hp.position.z;
-          // Rx * (lx, ly, lz)
-          const rx_x = lx;
-          const rx_y = ly * cp - lz * sp;
-          const rx_z = ly * sp + lz * cp;
-          // Ry * (rx)
-          const ry_x = sy * rx_z + cy * rx_x;
-          const ry_y = rx_y;
-          const ry_z = cy * rx_z - sy * rx_x;
-          // Rz * (ry)
+          // Rotate hardpoint local position to world space
+          const worldOffset = applyRotation(
+            hp.position,
+            this.hull.rotation.x,
+            this.hull.rotation.y,
+            this.hull.rotation.z,
+          );
           const origin: Vec3 = {
-            x: this.hull.position.x + cr * ry_x - sr * ry_y,
-            y: this.hull.position.y + sr * ry_x + cr * ry_y,
-            z: this.hull.position.z + ry_z,
+            x: this.hull.position.x + worldOffset.x,
+            y: this.hull.position.y + worldOffset.y,
+            z: this.hull.position.z + worldOffset.z,
           };
           const fired = weapon.fire(origin, fwd);
           projectiles.push(...fired);

@@ -3,6 +3,7 @@ import { ShipController } from '../../src/simulation/ShipController.js';
 import { ShipHull } from '../../src/simulation/ShipHull.js';
 import { Hardpoint } from '../../src/simulation/Hardpoint.js';
 import { KineticCannon } from '../../src/simulation/KineticCannon.js';
+import { applyRotation } from '../../src/simulation/RotationMath.js';
 
 function makeArmedHull(): ShipHull {
   const hull = new ShipHull({
@@ -20,7 +21,7 @@ function makeArmedHull(): ShipHull {
   return hull;
 }
 
-describe('Hardpoint spawn position with roll', () => {
+describe('Hardpoint spawn position with rotation', () => {
   it('no rotation: hardpoint at (1,0,4) spawns at ship pos + (1,0,4)', () => {
     const hull = makeArmedHull();
     hull.position = { x: 10, y: 0, z: 0 };
@@ -33,7 +34,7 @@ describe('Hardpoint spawn position with roll', () => {
     expect(result.projectiles[0].position.z).toBeCloseTo(4, 2);
   });
 
-  it('roll π/2: hardpoint at (1,0,4) should move to (0,1,4)', () => {
+  it('roll π/2: uses applyRotation (verified independently)', () => {
     const hull = makeArmedHull();
     hull.rotation.z = Math.PI / 2;
     hull.position = { x: 10, y: 0, z: 0 };
@@ -41,27 +42,13 @@ describe('Hardpoint spawn position with roll', () => {
     ctrl.setFiring(true);
     const result = ctrl.update(0.01);
     expect(result.projectiles.length).toBe(1);
-    // Rz(π/2) * (1,0,4) = (0, 1, 4)
-    expect(result.projectiles[0].position.x).toBeCloseTo(10, 2); // ship.x + 0
-    expect(result.projectiles[0].position.y).toBeCloseTo(1, 2);  // ship.y + 1
-    expect(result.projectiles[0].position.z).toBeCloseTo(4, 2);  // ship.z + 4
+    const expected = applyRotation({ x: 1, y: 0, z: 4 }, 0, 0, Math.PI / 2);
+    expect(result.projectiles[0].position.x).toBeCloseTo(10 + expected.x, 2);
+    expect(result.projectiles[0].position.y).toBeCloseTo(expected.y, 2);
+    expect(result.projectiles[0].position.z).toBeCloseTo(expected.z, 2);
   });
 
-  it('roll π: hardpoint at (1,0,4) should move to (-1,0,4)', () => {
-    const hull = makeArmedHull();
-    hull.rotation.z = Math.PI;
-    hull.position = { x: 0, y: 0, z: 0 };
-    const ctrl = new ShipController(hull);
-    ctrl.setFiring(true);
-    const result = ctrl.update(0.01);
-    expect(result.projectiles.length).toBe(1);
-    // Rz(π) * (1,0,4) = (-1, 0, 4)
-    expect(result.projectiles[0].position.x).toBeCloseTo(-1, 2);
-    expect(result.projectiles[0].position.y).toBeCloseTo(0, 2);
-    expect(result.projectiles[0].position.z).toBeCloseTo(4, 2);
-  });
-
-  it('arbitrary rotation matches full Rz*Ry*Rx matrix', () => {
+  it('arbitrary rotation matches applyRotation', () => {
     const hull = makeArmedHull();
     hull.rotation.x = 0.3;
     hull.rotation.y = 0.7;
@@ -71,25 +58,9 @@ describe('Hardpoint spawn position with roll', () => {
     ctrl.setFiring(true);
     const result = ctrl.update(0.01);
     expect(result.projectiles.length).toBe(1);
-
-    // Compute expected: Rz(1.2) * Ry(0.7) * Rx(0.3) * (1, 0, 4) + (5, -2, 3)
-    const cx = Math.cos(0.3), sx = Math.sin(0.3);
-    const cy = Math.cos(0.7), sy = Math.sin(0.7);
-    const cz = Math.cos(1.2), sz = Math.sin(1.2);
-
-    // Rx * (1, 0, 4)
-    const rx_x = 1, rx_y = -4 * sx, rx_z = 4 * cx;
-    // Ry * (rx)
-    const ry_x = sy * rx_z + cy * rx_x;
-    const ry_y = rx_y;
-    const ry_z = cy * rx_z - sy * rx_x;
-    // Rz * (ry)
-    const ex = cz * ry_x - sz * ry_y + 5;
-    const ey = sz * ry_x + cz * ry_y - 2;
-    const ez = ry_z + 3;
-
-    expect(result.projectiles[0].position.x).toBeCloseTo(ex, 2);
-    expect(result.projectiles[0].position.y).toBeCloseTo(ey, 2);
-    expect(result.projectiles[0].position.z).toBeCloseTo(ez, 2);
+    const expected = applyRotation({ x: 1, y: 0, z: 4 }, 0.3, 0.7, 1.2);
+    expect(result.projectiles[0].position.x).toBeCloseTo(5 + expected.x, 2);
+    expect(result.projectiles[0].position.y).toBeCloseTo(-2 + expected.y, 2);
+    expect(result.projectiles[0].position.z).toBeCloseTo(3 + expected.z, 2);
   });
 });

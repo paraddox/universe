@@ -14,16 +14,13 @@ function makeHull(): ShipHull {
   });
 }
 
-describe('getForward with roll', () => {
-  it('at roll=π/2 (no yaw/pitch), forward should be +Y', () => {
+describe('getForward with roll (Three.js Euler XYZ: Rx*Ry*Rz)', () => {
+  it('at roll=π/2 (no yaw/pitch), forward should still be +Z', () => {
     const hull = makeHull();
     hull.rotation.z = Math.PI / 2;
     const ctrl = new ShipController(hull);
     const fwd = (ctrl as any).getForward();
-    // 90° roll around Z: +Z stays +Z, but actually...
-    // Three.js Euler XYZ: Rx(pitch) then Ry(yaw) then Rz(roll)
-    // Rz(π/2) applied to (0,0,1) = (0,0,1) — Z is rotation axis, unchanged
-    // So forward should still be (0,0,1) for pure roll
+    // Forward is roll-independent in correct Euler XYZ
     expect(fwd.x).toBeCloseTo(0, 5);
     expect(fwd.y).toBeCloseTo(0, 5);
     expect(fwd.z).toBeCloseTo(1, 5);
@@ -35,29 +32,21 @@ describe('getForward with roll', () => {
     hull.rotation.z = Math.PI / 2;
     const ctrl = new ShipController(hull);
     const fwd = (ctrl as any).getForward();
-    // Ry(π/2) takes (0,0,1)→(1,0,0). Rz(π/2) doesn't change Z component.
-    // With Euler XYZ order: R = Rz * Ry * Rx
-    // Rz(π/2) * Ry(π/2) * (0,0,1) = Rz(π/2) * (1,0,0) = (0,1,0)
-    // Wait — Euler XYZ means Rx first, then Ry, then Rz
-    // Full: v' = Rz(roll) * Ry(yaw) * Rx(pitch) * v
-    // Rz(π/2) * Ry(π/2) * (0,0,1)
-    // First: Ry(π/2)*(0,0,1) = (sin(π/2), 0, cos(π/2)) = (1, 0, 0)
-    // Then: Rz(π/2)*(1,0,0) = (cos(π/2), sin(π/2), 0) = (0, 1, 0)
-    expect(fwd.x).toBeCloseTo(0, 5);
-    expect(fwd.y).toBeCloseTo(1, 5);
+    // Forward is roll-independent
+    expect(fwd.x).toBeCloseTo(1, 5);
+    expect(fwd.y).toBeCloseTo(0, 5);
     expect(fwd.z).toBeCloseTo(0, 5);
   });
 
-  it('at pitch=π/4 with roll=π, forward should be -Y component inverted', () => {
+  it('at pitch=π/4 with roll=π, forward should be same as pitch=π/4 with roll=0', () => {
     const hull = makeHull();
     hull.rotation.x = Math.PI / 4;
     hull.rotation.z = Math.PI;
     const ctrl = new ShipController(hull);
     const fwd = (ctrl as any).getForward();
-    // Rx(π/4)*(0,0,1) = (0, -sin(π/4), cos(π/4))
-    // Rz(π) * (0, -sin(π/4), cos(π/4)) = (0, sin(π/4), cos(π/4))
+    // Forward is roll-independent
     expect(fwd.x).toBeCloseTo(0, 5);
-    expect(fwd.y).toBeCloseTo(Math.sin(Math.PI / 4), 5);
+    expect(fwd.y).toBeCloseTo(-Math.sin(Math.PI / 4), 5);
     expect(fwd.z).toBeCloseTo(Math.cos(Math.PI / 4), 5);
   });
 
@@ -68,23 +57,14 @@ describe('getForward with roll', () => {
     hull.rotation.z = 1.2;
     const ctrl = new ShipController(hull);
     const fwd = (ctrl as any).getForward();
-
-    // Compute expected with full rotation matrix: Rz * Ry * Rx * (0,0,1)
-    const cx = Math.cos(0.3), sx = Math.sin(0.3);
-    const cy = Math.cos(0.7), sy = Math.sin(0.7);
-    const cz = Math.cos(1.2), sz = Math.sin(1.2);
-
-    // Rx * (0,0,1) = (0, -sx, cx)
-    const rx_x = 0, rx_y = -sx, rx_z = cx;
-    // Ry * (rx)
-    const ry_x = sy * rx_z, ry_y = rx_y, ry_z = cy * rx_z;
-    // Rz * (ry)
-    const ex = cz * ry_x - sz * ry_y;
-    const ey = sz * ry_x + cz * ry_y;
-    const ez = ry_z;
-
-    expect(fwd.x).toBeCloseTo(ex, 5);
-    expect(fwd.y).toBeCloseTo(ey, 5);
-    expect(fwd.z).toBeCloseTo(ez, 5);
+    // Three.js Euler XYZ forward: (sin(yaw), -sin(pitch)*cos(yaw), cos(pitch)*cos(yaw))
+    const expected = {
+      x: Math.sin(0.7),
+      y: -Math.sin(0.3) * Math.cos(0.7),
+      z: Math.cos(0.3) * Math.cos(0.7),
+    };
+    expect(fwd.x).toBeCloseTo(expected.x, 5);
+    expect(fwd.y).toBeCloseTo(expected.y, 5);
+    expect(fwd.z).toBeCloseTo(expected.z, 5);
   });
 });
