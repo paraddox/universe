@@ -109,10 +109,18 @@ export class ShipController {
         const weapon = hp.mountedModule!;
         weapon.update(dt);
         if (weapon.canFire()) {
+          // Rotate hardpoint position by ship yaw/pitch to get world-space origin
+          const cosY = Math.cos(this.hull.rotation.y);
+          const sinY = Math.sin(this.hull.rotation.y);
+          const cosP = Math.cos(this.hull.rotation.x);
+          const sinP = Math.sin(this.hull.rotation.x);
+          const lx = hp.position.x;
+          const ly = hp.position.y;
+          const lz = hp.position.z;
           const origin: Vec3 = {
-            x: this.hull.position.x + hp.position.x,
-            y: this.hull.position.y + hp.position.y,
-            z: this.hull.position.z + hp.position.z,
+            x: this.hull.position.x + lx * cosY + lz * sinY,
+            y: this.hull.position.y + ly * cosP - lz * sinP,
+            z: this.hull.position.z - lx * sinY + lz * cosY,
           };
           const fired = weapon.fire(origin, fwd);
           projectiles.push(...fired);

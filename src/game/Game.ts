@@ -1,4 +1,4 @@
-import { Vector3 as Vector3, Euler as Euler } from 'three';
+import { Vector3, Euler, LineBasicMaterial, BufferGeometry, Line, Float32BufferAttribute, Color } from 'three';
 import { GameRenderer } from '../render/GameRenderer.js';
 import { InputManager } from '../input/InputManager.js';
 import { ShipController } from '../simulation/ShipController.js';
@@ -47,6 +47,17 @@ export class Game {
     this.playerMesh = this.renderer.shipMeshFactory.createShipMesh(
       this.playerController.hull,
     );
+
+    // Add forward direction indicator (bright green line pointing forward)
+    const lineGeo = new BufferGeometry();
+    lineGeo.setAttribute('position', new Float32BufferAttribute([
+      0, 0, 2,  // start: just ahead of center
+      0, 0, 12, // end: 12 units forward
+    ], 3));
+    const lineMat = new LineBasicMaterial({ color: new Color(0x00ff44) });
+    const line = new Line(lineGeo, lineMat);
+    this.playerMesh.add(line);
+
     this.renderer.scene.add(this.playerMesh);
 
     // Initialize camera behind ship
@@ -142,8 +153,28 @@ export class Game {
       dt,
     );
 
+    // Debug HUD
+    this.updateDebugHUD(hull);
+
     // Render
     this.renderer.render();
+  }
+
+  private debugEl: HTMLDivElement | null = null;
+
+  private updateDebugHUD(hull: any): void {
+    if (!this.debugEl) {
+      this.debugEl = document.createElement('div');
+      this.debugEl.style.cssText = 'position:fixed;top:10px;right:10px;color:#0f0;font-family:monospace;font-size:12px;pointer-events:none;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;';
+      document.body.appendChild(this.debugEl);
+    }
+    const fwd = (this.playerController as any).getForward();
+    this.debugEl.innerHTML = `
+      <div>Yaw: ${(hull.rotation.y * 180 / Math.PI).toFixed(1)}°</div>
+      <div>Pitch: ${(hull.rotation.x * 180 / Math.PI).toFixed(1)}°</div>
+      <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
+      <div>Projectiles: ${this.projectileVisuals.size}</div>
+    `;
   }
 
   dispose(): void {
