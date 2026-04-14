@@ -15,16 +15,14 @@ export class CameraController {
     this.currentOffset = this.offset.clone();
   }
 
+  private rotateOffset(rotation: THREE.Euler): THREE.Vector3 {
+    // Use Three.js's own quaternion to rotate the offset — guaranteed to match the ship mesh
+    const quat = new THREE.Quaternion().setFromEuler(rotation);
+    return this.offset.clone().applyQuaternion(quat);
+  }
+
   update(shipPosition: THREE.Vector3, shipRotation: THREE.Euler, dt: number): void {
-    // Rotate offset by ship yaw (so camera follows behind the ship)
-    const yaw = shipRotation.y;
-    const cosY = Math.cos(yaw);
-    const sinY = Math.sin(yaw);
-    const rotatedOffset = new THREE.Vector3(
-      this.offset.x * cosY + this.offset.z * sinY,
-      this.offset.y,
-      -this.offset.x * sinY + this.offset.z * cosY,
-    );
+    const rotatedOffset = this.rotateOffset(shipRotation);
 
     const alpha = Math.min(1, CAMERA_SMOOTHING * dt);
     this.currentOffset.lerp(rotatedOffset, alpha);
@@ -35,14 +33,7 @@ export class CameraController {
   }
 
   reset(shipPosition: THREE.Vector3, shipRotation: THREE.Euler): void {
-    const yaw = shipRotation.y;
-    const cosY = Math.cos(yaw);
-    const sinY = Math.sin(yaw);
-    this.currentOffset.set(
-      this.offset.x * cosY + this.offset.z * sinY,
-      this.offset.y,
-      -this.offset.x * sinY + this.offset.z * cosY,
-    );
+    this.currentOffset.copy(this.rotateOffset(shipRotation));
     this.camera.position.copy(shipPosition.clone().add(this.currentOffset));
     this.camera.lookAt(shipPosition);
   }
