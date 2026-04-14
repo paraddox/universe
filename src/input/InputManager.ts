@@ -60,7 +60,7 @@ export class InputManager {
     const thrust = this.keys.has('KeyW') ? 1 : 0;
     const strafe = (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
     const verticalStrafe = (this.keys.has('Space') ? 1 : 0) - (this.keys.has('ShiftLeft') ? 1 : 0);
-    const yaw = Math.max(-1, Math.min(1, this.mouseX * 0.003));
+    const yaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
     const pitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
     const firing = this.mouseDown || this.keys.has('Space');
 
