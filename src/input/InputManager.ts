@@ -9,6 +9,7 @@ export interface InputState {
 }
 
 const THRUST_SCROLL_SENSITIVITY = 0.001;
+const MIN_THRUST_SCROLL_STEP = 0.01;
 const MAX_THRUST = 1;
 const DEFAULT_KEYBOARD_TURN_RESPONSE = 8;
 
@@ -143,8 +144,14 @@ export class InputManager {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    // Scale thrust by actual scroll magnitude so high-resolution wheels/trackpads don't hit 100% immediately.
-    this.thrustLevel -= e.deltaY * THRUST_SCROLL_SENSITIVITY;
+
+    if (e.deltaY === 0) {
+      return;
+    }
+
+    // Scale thrust by actual scroll magnitude, but ensure tiny wheel/trackpad motion can still escape 0%/100%.
+    const thrustDelta = Math.max(Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY, MIN_THRUST_SCROLL_STEP);
+    this.thrustLevel -= Math.sign(e.deltaY) * thrustDelta;
     this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel));
   }
 

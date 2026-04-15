@@ -141,17 +141,22 @@ describe('InputManager control mapping', () => {
     expect(Math.abs(fastInput.getState().pitch)).toBeGreaterThan(Math.abs(slowInput.getState().pitch));
   });
 
-  it('applies wheel thrust proportionally to scroll magnitude', () => {
+  it('escapes zero thrust on tiny upward wheel input so scroll does not feel locked at 0', () => {
     const input = new InputManager();
 
     triggerWheel(input, -1);
-    expect(input.getState().thrust).toBeCloseTo(0.001, 10);
 
-    triggerWheel(input, -9);
-    expect(input.getState().thrust).toBeCloseTo(0.01, 10);
+    expect(Math.round(input.getState().thrust * 100)).toBeGreaterThan(0);
+  });
+
+  it('still scales larger wheel thrust changes proportionally', () => {
+    const input = new InputManager();
 
     triggerWheel(input, -90);
-    expect(input.getState().thrust).toBeCloseTo(0.1, 10);
+    expect(input.getState().thrust).toBeCloseTo(0.09, 10);
+
+    triggerWheel(input, 30);
+    expect(input.getState().thrust).toBeCloseTo(0.06, 10);
   });
 
   it('maps Q to roll left and E to roll right', () => {
