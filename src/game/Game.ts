@@ -115,6 +115,7 @@ export class Game {
     this.lastTime = now;
 
     // Input
+    this.input.update(dt);
     const state = this.input.getState();
     this.playerController.setThrust(state.thrust);
     this.playerController.setStrafe(state.strafe);

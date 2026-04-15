@@ -10,6 +10,19 @@ export interface InputState {
 
 const THRUST_SCROLL_SENSITIVITY = 0.001;
 const MAX_THRUST = 1;
+const KEYBOARD_TURN_RESPONSE = 8;
+
+function approach(current: number, target: number, maxDelta: number): number {
+  if (current < target) {
+    return Math.min(current + maxDelta, target);
+  }
+
+  if (current > target) {
+    return Math.max(current - maxDelta, target);
+  }
+
+  return current;
+}
 
 export class InputManager {
   private keys: Set<string> = new Set();
@@ -17,6 +30,8 @@ export class InputManager {
   private mouseY: number = 0;
   private mouseDown: boolean = false;
   private thrustLevel: number = 0;
+  private keyboardYaw: number = 0;
+  private keyboardPitch: number = 0;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
 
@@ -65,6 +80,16 @@ export class InputManager {
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
   }
 
+  update(dt: number): void {
+    const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+    const targetKeyYaw = shiftHeld ? 0 : (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
+    const targetKeyPitch = shiftHeld ? 0 : (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
+    const maxDelta = KEYBOARD_TURN_RESPONSE * dt;
+
+    this.keyboardYaw = approach(this.keyboardYaw, targetKeyYaw, maxDelta);
+    this.keyboardPitch = approach(this.keyboardPitch, targetKeyPitch, maxDelta);
+  }
+
   getState(): InputState {
     const thrust = this.thrustLevel;
     const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
@@ -77,13 +102,10 @@ export class InputManager {
       : 0;
 
     const mouseYaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
-    const keyYaw = shiftHeld ? 0 : (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
-    const yaw = Math.max(-1, Math.min(1, mouseYaw + keyYaw));
+    const yaw = Math.max(-1, Math.min(1, mouseYaw + this.keyboardYaw));
 
-    // W = nose up (negative pitch), S = nose down (positive pitch), unless Shift is held for vertical strafe
-    const keyPitch = shiftHeld ? 0 : (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
     const mousePitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
-    const pitch = Math.max(-1, Math.min(1, keyPitch + mousePitch));
+    const pitch = Math.max(-1, Math.min(1, this.keyboardPitch + mousePitch));
 
     const roll = (this.keys.has('KeyE') ? 1 : 0) - (this.keys.has('KeyQ') ? 1 : 0);
     const firing = this.mouseDown;

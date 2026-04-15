@@ -13,12 +13,17 @@ function triggerWheel(input: InputManager, deltaY: number): void {
   });
 }
 
+function advanceInput(input: InputManager, seconds: number): void {
+  input.update(seconds);
+}
+
 describe('InputManager control mapping', () => {
   it('maps plain W/S to pitch only', () => {
     const input = new InputManager();
     const keys = getKeys(input);
 
     keys.add('KeyW');
+    advanceInput(input, 1);
     let state = input.getState();
     expect(state.pitch).toBe(-1);
     expect(state.yaw).toBeCloseTo(0, 10);
@@ -27,6 +32,7 @@ describe('InputManager control mapping', () => {
 
     keys.clear();
     keys.add('KeyS');
+    advanceInput(input, 1);
     state = input.getState();
     expect(state.pitch).toBe(1);
     expect(state.yaw).toBeCloseTo(0, 10);
@@ -34,11 +40,29 @@ describe('InputManager control mapping', () => {
     expect(state.verticalStrafe).toBeCloseTo(0, 10);
   });
 
+  it('ramps keyboard pitch smoothly instead of jumping to full strength on the first frame', () => {
+    const input = new InputManager();
+    const keys = getKeys(input);
+
+    keys.add('KeyW');
+
+    advanceInput(input, 1 / 60);
+    const firstFramePitch = input.getState().pitch;
+    expect(firstFramePitch).toBeLessThan(0);
+    expect(firstFramePitch).toBeGreaterThan(-1);
+
+    advanceInput(input, 9 / 60);
+    const laterPitch = input.getState().pitch;
+    expect(laterPitch).toBeLessThan(firstFramePitch);
+    expect(laterPitch).toBeLessThan(-0.5);
+  });
+
   it('maps plain A/D to yaw only with A left and D right on screen', () => {
     const input = new InputManager();
     const keys = getKeys(input);
 
     keys.add('KeyA');
+    advanceInput(input, 1);
     let state = input.getState();
     expect(state.yaw).toBe(1);
     expect(state.pitch).toBeCloseTo(0, 10);
@@ -47,6 +71,7 @@ describe('InputManager control mapping', () => {
 
     keys.clear();
     keys.add('KeyD');
+    advanceInput(input, 1);
     state = input.getState();
     expect(state.yaw).toBe(-1);
     expect(state.pitch).toBeCloseTo(0, 10);
@@ -60,6 +85,7 @@ describe('InputManager control mapping', () => {
 
     keys.add('ShiftLeft');
     keys.add('KeyW');
+    advanceInput(input, 1);
     let state = input.getState();
     expect(state.verticalStrafe).toBe(1);
     expect(state.pitch).toBeCloseTo(0, 10);
@@ -69,6 +95,7 @@ describe('InputManager control mapping', () => {
     keys.clear();
     keys.add('ShiftLeft');
     keys.add('KeyS');
+    advanceInput(input, 1);
     state = input.getState();
     expect(state.verticalStrafe).toBe(-1);
     expect(state.pitch).toBeCloseTo(0, 10);
@@ -82,6 +109,7 @@ describe('InputManager control mapping', () => {
 
     keys.add('ShiftLeft');
     keys.add('KeyA');
+    advanceInput(input, 1);
     let state = input.getState();
     expect(state.strafe).toBe(1);
     expect(state.yaw).toBeCloseTo(0, 10);
@@ -91,6 +119,7 @@ describe('InputManager control mapping', () => {
     keys.clear();
     keys.add('ShiftLeft');
     keys.add('KeyD');
+    advanceInput(input, 1);
     state = input.getState();
     expect(state.strafe).toBe(-1);
     expect(state.yaw).toBeCloseTo(0, 10);
