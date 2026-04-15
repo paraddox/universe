@@ -10,6 +10,10 @@ const HULL_COLORS: Record<string, number> = {
   battlecruiser: 0xaa4444,
 };
 
+function createHardpointName(id: string): string {
+  return `hardpoint:${id}`;
+}
+
 export class ShipMeshFactory {
   private materialCache: Map<string, THREE.MeshStandardMaterial> = new Map();
 
@@ -17,36 +21,74 @@ export class ShipMeshFactory {
     const group = new THREE.Group();
     const { length, width, height } = hull.dimensions;
 
-    // Main hull body — elongated hexagonal prism approximated with a box
     const bodyGeo = new THREE.BoxGeometry(width * 0.6, height * 0.5, length);
     const bodyMat = this.getMaterial(hull.hullClass);
     const body = new THREE.Mesh(bodyGeo, bodyMat);
+    body.name = 'ship-body';
     group.add(body);
 
-    // Nose taper — pyramid/cone at front
     const noseGeo = new THREE.ConeGeometry(
-      Math.max(0.01, Math.min(width, height) * 0.25),
-      length * 0.2,
+      Math.max(0.01, Math.min(width, height) * 0.3),
+      length * 0.35,
       4,
     );
     const noseMat = this.getMaterial(hull.hullClass);
     const nose = new THREE.Mesh(noseGeo, noseMat);
+    nose.name = 'ship-nose';
     nose.rotation.x = Math.PI / 2;
-    nose.position.z = length * 0.6;
+    nose.position.z = length * 0.62;
     group.add(nose);
 
-    // Engine glow at back
+    const cockpitGeo = new THREE.BoxGeometry(width * 0.18, height * 0.22, length * 0.18);
+    const cockpitMat = new THREE.MeshStandardMaterial({
+      color: 0xcce6ff,
+      emissive: 0x336699,
+      emissiveIntensity: 0.45,
+      metalness: 0.25,
+      roughness: 0.2,
+    });
+    const cockpit = new THREE.Mesh(cockpitGeo, cockpitMat);
+    cockpit.name = 'ship-cockpit';
+    cockpit.position.set(0, height * 0.2, length * 0.28);
+    group.add(cockpit);
+
+    const spineGeo = new THREE.BoxGeometry(width * 0.08, height * 0.4, length * 0.24);
+    const spineMat = this.getMaterial(hull.hullClass);
+    const spine = new THREE.Mesh(spineGeo, spineMat);
+    spine.name = 'ship-spine';
+    spine.position.set(0, height * 0.28, -length * 0.08);
+    group.add(spine);
+
     const engineGeo = new THREE.BoxGeometry(width * 0.4, height * 0.3, length * 0.15);
     const engineMat = new THREE.MeshStandardMaterial({
       color: 0x0066ff,
       emissive: 0x0033aa,
-      emissiveIntensity: 0.5,
+      emissiveIntensity: 0.75,
     });
     const engine = new THREE.Mesh(engineGeo, engineMat);
+    engine.name = 'ship-engine-core';
     engine.position.z = -length * 0.5;
     group.add(engine);
 
-    // Hardpoint indicators
+    const exhaustGeo = new THREE.BoxGeometry(width * 0.22, height * 0.12, length * 0.08);
+    const exhaustMat = new THREE.MeshStandardMaterial({
+      color: 0x66ccff,
+      emissive: 0x2299ff,
+      emissiveIntensity: 0.95,
+      roughness: 0.15,
+      metalness: 0.1,
+    });
+
+    const exhaustLeft = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
+    exhaustLeft.name = 'ship-engine-left';
+    exhaustLeft.position.set(-width * 0.14, 0, -length * 0.61);
+    group.add(exhaustLeft);
+
+    const exhaustRight = new THREE.Mesh(exhaustGeo, exhaustMat.clone());
+    exhaustRight.name = 'ship-engine-right';
+    exhaustRight.position.set(width * 0.14, 0, -length * 0.61);
+    group.add(exhaustRight);
+
     for (const hp of hull.hardpoints) {
       const hpGeo = new THREE.BoxGeometry(0.3, 0.3, 0.6);
       const hpMat = new THREE.MeshStandardMaterial({
@@ -55,6 +97,7 @@ export class ShipMeshFactory {
         emissiveIntensity: hp.isOccupied() ? 0.3 : 0,
       });
       const hpMesh = new THREE.Mesh(hpGeo, hpMat);
+      hpMesh.name = createHardpointName(hp.id);
       hpMesh.position.set(hp.position.x, hp.position.y, hp.position.z);
       group.add(hpMesh);
     }
@@ -63,12 +106,9 @@ export class ShipMeshFactory {
   }
 
   updateHardpointVisuals(group: THREE.Group, hull: ShipHull): void {
-    // Hardpoint meshes are after body, nose, engine (indices 0-2)
-    const offset = 3;
-    for (let i = 0; i < hull.hardpoints.length; i++) {
-      const mesh = group.children[offset + i] as THREE.Mesh;
+    for (const hp of hull.hardpoints) {
+      const mesh = group.getObjectByName(createHardpointName(hp.id)) as THREE.Mesh | undefined;
       if (!mesh) continue;
-      const hp = hull.hardpoints[i];
       const mat = mesh.material as THREE.MeshStandardMaterial;
       if (hp.isOccupied()) {
         mat.color.setHex(0xff6600);
