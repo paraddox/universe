@@ -155,6 +155,19 @@ describe('InputManager control mapping', () => {
     expect(input.getState().thrust).toBeLessThan(afterFirst + 0.02);
   });
 
+  it('does not let an opposite-sign bounce immediately cancel the first escape from zero thrust', () => {
+    const input = new InputManager();
+
+    triggerWheel(input, 1);
+    expect(input.getState().thrust).toBeGreaterThan(0);
+
+    triggerWheel(input, -1);
+    expect(input.getState().thrust).toBeGreaterThan(0);
+
+    triggerWheel(input, -1);
+    expect(input.getState().thrust).toBe(0);
+  });
+
   it('still scales larger wheel thrust changes proportionally', () => {
     const input = new InputManager();
 

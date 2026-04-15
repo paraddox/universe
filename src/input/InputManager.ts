@@ -35,6 +35,7 @@ export class InputManager {
   private keyboardPitch: number = 0;
   private keyboardTurnResponse: number = DEFAULT_KEYBOARD_TURN_RESPONSE;
   private thrustIncreaseScrollSign: number | null = null;
+  private protectInitialZeroEscape: boolean = false;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
 
@@ -151,7 +152,8 @@ export class InputManager {
     }
 
     const scrollSign = Math.sign(e.deltaY);
-    if (this.thrustIncreaseScrollSign === null && this.thrustLevel === 0) {
+    const wasAtZero = this.thrustLevel === 0;
+    if (this.thrustIncreaseScrollSign === null && wasAtZero) {
       this.thrustIncreaseScrollSign = scrollSign;
     }
 
@@ -160,7 +162,20 @@ export class InputManager {
     // Scale thrust by actual scroll magnitude, but ensure tiny wheel/trackpad motion can still escape 0%/100%.
     const thrustStep = Math.max(Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY, MIN_THRUST_SCROLL_STEP);
     const signedStep = scrollSign === increaseScrollSign ? thrustStep : -thrustStep;
-    this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel + signedStep));
+    const nextThrust = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel + signedStep));
+
+    if (this.protectInitialZeroEscape && signedStep < 0 && nextThrust === 0) {
+      this.protectInitialZeroEscape = false;
+      return;
+    }
+
+    this.thrustLevel = nextThrust;
+
+    if (wasAtZero && this.thrustLevel > 0) {
+      this.protectInitialZeroEscape = true;
+    } else if (this.protectInitialZeroEscape) {
+      this.protectInitialZeroEscape = false;
+    }
   }
 
   private onPointerLockChange(): void {
