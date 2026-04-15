@@ -1,6 +1,6 @@
 import { Projectile } from './Projectile.js';
+import type { CombatTarget } from './CombatTarget.js';
 import type { Vec3 } from './WeaponModule.js';
-import { Target } from './Target.js';
 
 function segmentSphereHit(start: Vec3, end: Vec3, center: Vec3, radius: number): number | null {
   const dx = end.x - start.x;
@@ -51,7 +51,7 @@ export class ProjectileSystem {
     this.projectiles.push(projectile);
   }
 
-  update(dt: number, targets: Target[] = []): ProjectileHitEvent[] {
+  update(dt: number, targets: CombatTarget[] = []): ProjectileHitEvent[] {
     const remaining: Projectile[] = [];
     const hits: ProjectileHitEvent[] = [];
 
@@ -69,11 +69,11 @@ export class ProjectileSystem {
         z: end.z - start.z,
       };
 
-      let nearestTarget: Target | null = null;
+      let nearestTarget: CombatTarget | null = null;
       let nearestT = Infinity;
 
       for (const target of targets) {
-        if (!target.isActive()) continue;
+        if (!target.isActive() || target.teamId === p.ownerId) continue;
         const hitT = segmentSphereHit(start, end, target.position, target.radius);
         if (hitT !== null && hitT < nearestT) {
           nearestT = hitT;

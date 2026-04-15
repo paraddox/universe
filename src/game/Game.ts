@@ -12,10 +12,12 @@ import {
 } from 'three';
 import { GameRenderer } from '../render/GameRenderer.js';
 import { InputManager } from '../input/InputManager.js';
-import { ShipController } from '../simulation/ShipController.js';
 import { ProjectileSystem } from '../simulation/ProjectileSystem.js';
 import { Projectile } from '../simulation/Projectile.js';
+import type { CombatTarget } from '../simulation/CombatTarget.js';
 import { Target } from '../simulation/Target.js';
+import { ShipCombatant } from '../simulation/ShipCombatant.js';
+import { EnemyShipAI } from '../simulation/EnemyShipAI.js';
 import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
 import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
@@ -52,12 +54,14 @@ export class Game {
   private input: InputManager;
   private lastTime: number = 0;
 
-  private playerController: ShipController;
+  private playerShip: ShipCombatant;
   private playerMesh!: import('three').Group;
   private projectileSystem: ProjectileSystem;
   private projectileVisuals: Map<number, ProjectileVisual> = new Map();
   private nextVisualId = 0;
   private targets: Target[] = [];
+  private enemyShips: ShipCombatant[] = [];
+  private enemyAIs: EnemyShipAI[] = [];
   private targetVisuals: Map<string, TargetVisual> = new Map();
 
   private running = false;
@@ -74,7 +78,14 @@ export class Game {
     hull.mountWeapon('wp-left-nose', new KineticCannon('light', 'player'));
     hull.mountWeapon('wp-right-nose', new KineticCannon('light', 'player'));
 
-    this.playerController = new ShipController(hull);
+    this.playerShip = new ShipCombatant({
+      id: 'player',
+      hull,
+      radius: 5,
+      maxHealth: 100,
+      teamId: 'player',
+      respawnDelay: 3,
+    });
     this.projectileSystem = new ProjectileSystem();
     this.input.setKeyboardTurnResponse(hull.keyboardTurnResponse);
 
@@ -84,7 +95,7 @@ export class Game {
 
   private spawnPlayerMesh(): void {
     this.playerMesh = this.renderer.shipMeshFactory.createShipMesh(
-      this.playerController.hull,
+      this.playerShip.hull,
     );
 
     // Add forward direction indicator (bright green line pointing forward)
@@ -100,16 +111,16 @@ export class Game {
     this.renderer.scene.add(this.playerMesh);
 
     const pos = new Vector3(
-      this.playerController.hull.position.x,
-      this.playerController.hull.position.y,
-      this.playerController.hull.position.z,
+      this.playerShip.hull.position.x,
+      this.playerShip.hull.position.y,
+      this.playerShip.hull.position.z,
     );
     const quat = this.syncQuaternion();
     this.renderer.cameraController.reset(pos, quat);
   }
 
   private syncQuaternion(): ThreeQuat {
-    const o = this.playerController.hull.orientation;
+    const o = this.playerShip.hull.orientation;
     return new ThreeQuat(o.x, o.y, o.z, o.w);
   }
 
@@ -132,26 +143,83 @@ export class Game {
       respawnDelay: 5,
     }));
 
-    this.addTarget(new Target({
+    this.addEnemyShip({
       id: 'enemy-fighter-1',
+      hullClass: 'fighter',
       position: { x: 28, y: 4, z: 145 },
       radius: 5,
       maxHealth: 80,
-      kind: 'ship',
-      hullClass: 'fighter',
       respawnDelay: 7,
-    }));
+      weaponHardpointIds: ['wp-left-nose', 'wp-right-nose'],
+      patrolRadius: 18,
+      aggroRange: 170,
+      preferredRange: 85,
+      fireRange: 120,
+      breakawayRange: 22,
+    });
 
-    this.addTarget(new Target({
+    this.addEnemyShip({
       id: 'enemy-corvette-1',
+      hullClass: 'corvette',
       position: { x: -42, y: -10, z: 190 },
       radius: 10,
       maxHealth: 160,
-      kind: 'ship',
-      hullClass: 'corvette',
       respawnDelay: 10,
-    }));
+      weaponHardpointIds: ['wp-nose-left', 'wp-nose-right'],
+      patrolRadius: 28,
+      aggroRange: 210,
+      preferredRange: 130,
+      fireRange: 170,
+      breakawayRange: 40,
+    });
   }
+
+  private addEnemyShip(config: {
+    id: string;
+    hullClass: string;
+    position: { x: number; y: number; z: number };
+    radius: number;
+    maxHealth: number;
+    respawnDelay: number;
+    weaponHardpointIds: string[];
+    patrolRadius: number;
+    aggroRange: number;
+    preferredRange: number;
+    fireRange: number;
+    breakawayRange: number;
+  }): void {
+    const hull = createHull(config.hullClass);
+    hull.id = config.id;
+    hull.position = { ...config.position };
+    for (const hardpointId of config.weaponHardpointIds) {
+      hull.mountWeapon(hardpointId, new KineticCannon('light', 'enemy'));
+    }
+
+    const ship = new ShipCombatant({
+      id: config.id,
+      hull,
+      radius: config.radius,
+      maxHealth: config.maxHealth,
+      teamId: 'enemy',
+      respawnDelay: config.respawnDelay,
+    });
+    const ai = new EnemyShipAI(ship, {
+      patrolCenter: { ...config.position },
+      patrolRadius: config.patrolRadius,
+      aggroRange: config.aggroRange,
+      preferredRange: config.preferredRange,
+      fireRange: config.fireRange,
+      breakawayRange: config.breakawayRange,
+    });
+
+    this.enemyShips.push(ship);
+    this.enemyAIs.push(ai);
+
+    const object = createEnemyShipTargetMesh(ship, this.renderer.shipMeshFactory);
+    this.targetVisuals.set(ship.id, { object, kind: 'ship' });
+    this.renderer.scene.add(object);
+  }
+
 
   private addTarget(target: Target): void {
     this.targets.push(target);
@@ -185,24 +253,49 @@ export class Game {
     // Input
     this.input.update(dt);
     const state = this.input.getState();
-    this.playerController.setThrust(state.thrust);
-    this.playerController.setStrafe(state.strafe);
-    this.playerController.setVerticalStrafe(state.verticalStrafe);
-    this.playerController.setYaw(state.yaw);
-    this.playerController.setPitch(state.pitch);
-    this.playerController.setRoll(state.roll);
-    this.playerController.setFiring(state.firing);
-    this.thrustLevel = state.thrust;
+    if (this.playerShip.isActive()) {
+      this.playerShip.controller.setThrust(state.thrust);
+      this.playerShip.controller.setStrafe(state.strafe);
+      this.playerShip.controller.setVerticalStrafe(state.verticalStrafe);
+      this.playerShip.controller.setYaw(state.yaw);
+      this.playerShip.controller.setPitch(state.pitch);
+      this.playerShip.controller.setRoll(state.roll);
+      this.playerShip.controller.setFiring(state.firing);
+      this.thrustLevel = state.thrust;
+    } else {
+      this.playerShip.controller.setThrust(0);
+      this.playerShip.controller.setStrafe(0);
+      this.playerShip.controller.setVerticalStrafe(0);
+      this.playerShip.controller.setYaw(0);
+      this.playerShip.controller.setPitch(0);
+      this.playerShip.controller.setRoll(0);
+      this.playerShip.controller.setFiring(false);
+      this.thrustLevel = 0;
+    }
     this.input.resetMouseDelta();
 
     for (const target of this.targets) {
       target.update(dt);
     }
 
-    // Simulation
-    const result = this.playerController.update(dt);
+    const spawnedProjectiles: import('../simulation/WeaponModule.js').ProjectileData[] = [];
 
-    for (const pData of result.projectiles) {
+    // Player simulation
+    if (this.playerShip.isActive()) {
+      const result = this.playerShip.controller.update(dt);
+      spawnedProjectiles.push(...result.projectiles);
+      this.playerShip.update(dt);
+    } else {
+      this.playerShip.update(dt);
+    }
+
+    // Enemy simulation + AI
+    for (const ai of this.enemyAIs) {
+      const result = ai.update(dt, this.playerShip.position);
+      spawnedProjectiles.push(...result.projectiles);
+    }
+
+    for (const pData of spawnedProjectiles) {
       const proj = new Projectile(pData);
       this.projectileSystem.add(proj);
 
@@ -217,7 +310,8 @@ export class Game {
     }
 
     // Update projectiles + resolve target hits
-    this.projectileSystem.update(dt, this.targets);
+    const combatTargets: CombatTarget[] = [this.playerShip, ...this.enemyShips, ...this.targets];
+    this.projectileSystem.update(dt, combatTargets);
 
     // Sync projectile visuals
     const toRemove: number[] = [];
@@ -239,21 +333,23 @@ export class Game {
     }
 
     // Sync player mesh position + orientation
-    const hull = this.playerController.hull;
+    const hull = this.playerShip.hull;
     this.playerMesh.position.set(hull.position.x, hull.position.y, hull.position.z);
     const q = this.syncQuaternion();
     this.playerMesh.quaternion.copy(q);
+    this.playerMesh.visible = this.playerShip.isActive();
 
     // Sync target visuals
     for (const target of this.targets) {
       const visual = this.targetVisuals.get(target.id);
       if (!visual) continue;
+      updateTargetMesh(visual.object as Mesh, target);
+    }
 
-      if (visual.kind === 'ship') {
-        updateEnemyShipTargetMesh(visual.object as import('three').Group, target);
-      } else {
-        updateTargetMesh(visual.object as Mesh, target);
-      }
+    for (const ship of this.enemyShips) {
+      const visual = this.targetVisuals.get(ship.id);
+      if (!visual) continue;
+      updateEnemyShipTargetMesh(visual.object as import('three').Group, ship);
     }
 
     // Camera
@@ -274,10 +370,7 @@ export class Game {
   }
 
   private renderTargetStatus(): string {
-    return this.targets.map((target) => {
-      const label = target.kind === 'ship'
-        ? `${target.hullClass}:${target.id}`
-        : target.id;
+    const dummyStatus = this.targets.map((target) => {
       const status = target.isActive()
         ? `${Math.round(target.health)}/${target.maxHealth}`
         : 'reforming';
@@ -285,19 +378,36 @@ export class Game {
         ? ` (-${target.getRecentDamageAmount()})`
         : '';
 
-      return `<div>${label}: ${status}${damage}</div>`;
-    }).join('');
+      return `<div>${target.id}: ${status}${damage}</div>`;
+    });
+
+    const enemyStatus = this.enemyShips.map((ship, index) => {
+      const ai = this.enemyAIs[index];
+      const status = ship.isActive()
+        ? `${Math.round(ship.health)}/${ship.maxHealth}`
+        : 'reforming';
+      const damage = ship.getRecentDamageAmount() > 0
+        ? ` (-${ship.getRecentDamageAmount()})`
+        : '';
+      return `<div>${ship.hullClass}:${ship.id}: ${status}${damage} [${ai?.state ?? 'patrol'}]</div>`;
+    });
+
+    return [...dummyStatus, ...enemyStatus].join('');
   }
 
   private updateDebugHUD(): void {
     if (!this.debugEl) {
       this.debugEl = document.createElement('div');
-      this.debugEl.style.cssText = 'position:fixed;top:10px;right:10px;color:#0f0;font-family:monospace;font-size:12px;pointer-events:none;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;max-width:320px;';
+      this.debugEl.style.cssText = 'position:fixed;top:10px;right:10px;color:#0f0;font-family:monospace;font-size:12px;pointer-events:none;z-index:999;background:rgba(0,0,0,0.7);padding:8px;border-radius:4px;max-width:360px;';
       document.body.appendChild(this.debugEl);
     }
-    const fwd = this.playerController.getForward();
+    const fwd = this.playerShip.controller.getForward();
+    const playerStatus = this.playerShip.isActive()
+      ? `${Math.round(this.playerShip.health)}/${this.playerShip.maxHealth}`
+      : 'reforming';
     this.debugEl.innerHTML = `
-      <div>Ship: ${this.playerController.hull.hullClass}</div>
+      <div>Ship: ${this.playerShip.hull.hullClass}</div>
+      <div>Hull: ${playerStatus}</div>
       <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
       <div>Thrust: ${this.getThrustPercent()}%</div>
       <div>Projectiles: ${this.projectileVisuals.size}</div>

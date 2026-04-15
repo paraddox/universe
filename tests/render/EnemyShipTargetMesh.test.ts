@@ -1,6 +1,9 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { Target } from '../../src/simulation/Target.js';
+import { ShipCombatant } from '../../src/simulation/ShipCombatant.js';
+import { Quat } from '../../src/simulation/Quat.js';
+import { createHull } from '../../src/data/hulls.js';
 import { ShipMeshFactory } from '../../src/render/ShipMeshFactory.js';
 import { createEnemyShipTargetMesh, updateEnemyShipTargetMesh } from '../../src/render/EnemyShipTargetMesh.js';
 
@@ -58,5 +61,26 @@ describe('EnemyShipTargetMesh', () => {
     target.takeDamage(100);
     updateEnemyShipTargetMesh(group, target);
     expect(group.visible).toBe(false);
+  });
+
+  it('copies ship combatant orientation onto the rendered enemy ship mesh', () => {
+    const hull = createHull('fighter');
+    hull.position = { x: 1, y: 2, z: 3 };
+    hull.orientation = Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, Math.PI / 4);
+
+    const ship = new ShipCombatant({
+      id: 'enemy-fighter',
+      hull,
+      radius: 5,
+      maxHealth: 40,
+      teamId: 'enemy',
+    });
+
+    const factory = new ShipMeshFactory();
+    const group = createEnemyShipTargetMesh(ship, factory);
+    updateEnemyShipTargetMesh(group, ship);
+
+    expect(group.quaternion.y).toBeCloseTo(ship.orientation.y, 10);
+    expect(group.quaternion.w).toBeCloseTo(ship.orientation.w, 10);
   });
 });

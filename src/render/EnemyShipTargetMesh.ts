@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { createHull } from '../data/hulls.js';
-import type { Target } from '../simulation/Target.js';
+import type { CombatTarget } from '../simulation/CombatTarget.js';
 import { ShipMeshFactory } from './ShipMeshFactory.js';
 
 interface MaterialState {
@@ -37,7 +37,7 @@ function collectMaterialStates(group: THREE.Group): MaterialState[] {
   return states;
 }
 
-export function createEnemyShipTargetMesh(target: Target, shipMeshFactory: ShipMeshFactory): THREE.Group {
+export function createEnemyShipTargetMesh(target: CombatTarget, shipMeshFactory: ShipMeshFactory): THREE.Group {
   if (target.kind !== 'ship' || !target.hullClass) {
     throw new Error('Enemy ship target mesh requires a ship target with hullClass');
   }
@@ -49,8 +49,11 @@ export function createEnemyShipTargetMesh(target: Target, shipMeshFactory: ShipM
   return group;
 }
 
-export function updateEnemyShipTargetMesh(group: THREE.Group, target: Target): void {
+export function updateEnemyShipTargetMesh(group: THREE.Group, target: CombatTarget): void {
   group.position.set(target.position.x, target.position.y, target.position.z);
+  if (target.orientation) {
+    group.quaternion.set(target.orientation.x, target.orientation.y, target.orientation.z, target.orientation.w);
+  }
   group.visible = target.isActive();
 
   const flash = target.getHitFlashRatio();
