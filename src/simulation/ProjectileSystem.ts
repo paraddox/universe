@@ -1,4 +1,37 @@
 import { Projectile } from './Projectile.js';
+import type { Vec3 } from './WeaponModule.js';
+import { Target } from './Target.js';
+
+function segmentSphereHit(start: Vec3, end: Vec3, center: Vec3, radius: number): number | null {
+  const dx = end.x - start.x;
+  const dy = end.y - start.y;
+  const dz = end.z - start.z;
+
+  const fx = start.x - center.x;
+  const fy = start.y - center.y;
+  const fz = start.z - center.z;
+
+  const a = dx * dx + dy * dy + dz * dz;
+  if (a === 0) {
+    const distSq = fx * fx + fy * fy + fz * fz;
+    return distSq <= radius * radius ? 0 : null;
+  }
+
+  const b = 2 * (fx * dx + fy * dy + fz * dz);
+  const c = fx * fx + fy * fy + fz * fz - radius * radius;
+  const discriminant = b * b - 4 * a * c;
+  if (discriminant < 0) {
+    return null;
+  }
+
+  const sqrtDisc = Math.sqrt(discriminant);
+  const t1 = (-b - sqrtDisc) / (2 * a);
+  const t2 = (-b + sqrtDisc) / (2 * a);
+
+  if (t1 >= 0 && t1 <= 1) return t1;
+  if (t2 >= 0 && t2 <= 1) return t2;
+  return null;
+}
 
 export class ProjectileSystem {
   projectiles: Projectile[];
@@ -11,11 +44,41 @@ export class ProjectileSystem {
     this.projectiles.push(projectile);
   }
 
-  update(dt: number): void {
+  update(dt: number, targets: Target[] = []): void {
+    const remaining: Projectile[] = [];
+
     for (const p of this.projectiles) {
+      if (!p.isActive()) {
+        continue;
+      }
+
+      const start = { ...p.position };
       p.update(dt);
+      const end = p.position;
+
+      let nearestTarget: Target | null = null;
+      let nearestT = Infinity;
+
+      for (const target of targets) {
+        if (!target.isActive()) continue;
+        const hitT = segmentSphereHit(start, end, target.position, target.radius);
+        if (hitT !== null && hitT < nearestT) {
+          nearestT = hitT;
+          nearestTarget = target;
+        }
+      }
+
+      if (nearestTarget) {
+        nearestTarget.takeDamage(p.damage);
+        p.destroy();
+      }
+
+      if (p.isActive()) {
+        remaining.push(p);
+      }
     }
-    this.projectiles = this.projectiles.filter(p => p.isActive());
+
+    this.projectiles = remaining;
   }
 
   getActive(): Projectile[] {

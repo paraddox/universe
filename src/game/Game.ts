@@ -1,11 +1,13 @@
-import { Vector3, Quaternion as ThreeQuat } from 'three';
+import { Vector3, Quaternion as ThreeQuat, type Mesh } from 'three';
 import { GameRenderer } from '../render/GameRenderer.js';
 import { InputManager } from '../input/InputManager.js';
 import { ShipController } from '../simulation/ShipController.js';
 import { ProjectileSystem } from '../simulation/ProjectileSystem.js';
 import { Projectile } from '../simulation/Projectile.js';
+import { Target } from '../simulation/Target.js';
 import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
+import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
 import { LineBasicMaterial, BufferGeometry, Line, Float32BufferAttribute, Color } from 'three';
 
 interface ProjectileVisual {
@@ -23,6 +25,8 @@ export class Game {
   private projectileSystem: ProjectileSystem;
   private projectileVisuals: Map<number, ProjectileVisual> = new Map();
   private nextVisualId = 0;
+  private targets: Target[] = [];
+  private targetMeshes: Map<string, Mesh> = new Map();
 
   private running = false;
 
@@ -42,6 +46,7 @@ export class Game {
     this.projectileSystem = new ProjectileSystem();
 
     this.spawnPlayerMesh();
+    this.spawnTestTarget();
   }
 
   private spawnPlayerMesh(): void {
@@ -75,6 +80,20 @@ export class Game {
   private syncQuaternion(): ThreeQuat {
     const o = this.playerController.hull.orientation;
     return new ThreeQuat(o.x, o.y, o.z, o.w);
+  }
+
+  private spawnTestTarget(): void {
+    const target = new Target({
+      id: 'range-dummy-1',
+      position: { x: 0, y: 0, z: 80 },
+      radius: 6,
+      maxHealth: 60,
+    });
+    this.targets.push(target);
+
+    const mesh = createTargetMesh(target);
+    this.targetMeshes.set(target.id, mesh);
+    this.renderer.scene.add(mesh);
   }
 
   start(): void {
@@ -125,8 +144,8 @@ export class Game {
       }
     }
 
-    // Update projectiles
-    this.projectileSystem.update(dt);
+    // Update projectiles + resolve target hits
+    this.projectileSystem.update(dt, this.targets);
 
     // Sync projectile visuals
     const toRemove: number[] = [];
@@ -152,6 +171,14 @@ export class Game {
     this.playerMesh.position.set(hull.position.x, hull.position.y, hull.position.z);
     const q = this.syncQuaternion();
     this.playerMesh.quaternion.copy(q);
+
+    // Sync target visuals
+    for (const target of this.targets) {
+      const mesh = this.targetMeshes.get(target.id);
+      if (mesh) {
+        updateTargetMesh(mesh, target);
+      }
+    }
 
     // Camera
     this.renderer.cameraController.update(
@@ -180,16 +207,27 @@ export class Game {
       document.body.appendChild(this.debugEl);
     }
     const fwd = this.playerController.getForward();
+    const target = this.targets[0];
+    const targetStatus = target
+      ? (target.isActive() ? `${Math.round(target.health)}/${target.maxHealth}` : 'destroyed')
+      : 'none';
     this.debugEl.innerHTML = `
       <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
       <div>Thrust: ${this.getThrustPercent()}%</div>
       <div>Projectiles: ${this.projectileVisuals.size}</div>
+      <div>Target: ${targetStatus}</div>
     `;
   }
 
   dispose(): void {
     this.stop();
     this.input.detach();
+    this.targetMeshes.forEach((mesh) => {
+      this.renderer.scene.remove(mesh);
+      mesh.geometry.dispose();
+      (mesh.material as import('three').Material).dispose();
+    });
+    this.targetMeshes.clear();
     this.renderer.dispose();
   }
 }
