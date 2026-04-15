@@ -34,6 +34,7 @@ export class InputManager {
   private keyboardYaw: number = 0;
   private keyboardPitch: number = 0;
   private keyboardTurnResponse: number = DEFAULT_KEYBOARD_TURN_RESPONSE;
+  private thrustIncreaseScrollSign: number | null = null;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
 
@@ -149,10 +150,17 @@ export class InputManager {
       return;
     }
 
+    const scrollSign = Math.sign(e.deltaY);
+    if (this.thrustIncreaseScrollSign === null && this.thrustLevel === 0) {
+      this.thrustIncreaseScrollSign = scrollSign;
+    }
+
+    const increaseScrollSign = this.thrustIncreaseScrollSign ?? -1;
+
     // Scale thrust by actual scroll magnitude, but ensure tiny wheel/trackpad motion can still escape 0%/100%.
-    const thrustDelta = Math.max(Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY, MIN_THRUST_SCROLL_STEP);
-    this.thrustLevel -= Math.sign(e.deltaY) * thrustDelta;
-    this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel));
+    const thrustStep = Math.max(Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY, MIN_THRUST_SCROLL_STEP);
+    const signedStep = scrollSign === increaseScrollSign ? thrustStep : -thrustStep;
+    this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel + signedStep));
   }
 
   private onPointerLockChange(): void {

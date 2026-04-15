@@ -141,12 +141,18 @@ describe('InputManager control mapping', () => {
     expect(Math.abs(fastInput.getState().pitch)).toBeGreaterThan(Math.abs(slowInput.getState().pitch));
   });
 
-  it('escapes zero thrust on tiny upward wheel input so scroll does not feel locked at 0', () => {
+  it('treats the first wheel direction from zero as increasing thrust so devices do not start inverted', () => {
     const input = new InputManager();
 
-    triggerWheel(input, -1);
+    triggerWheel(input, 1);
+    const afterFirst = input.getState().thrust;
+    expect(afterFirst).toBeGreaterThan(0);
 
-    expect(Math.round(input.getState().thrust * 100)).toBeGreaterThan(0);
+    triggerWheel(input, 20);
+    expect(input.getState().thrust).toBeGreaterThan(afterFirst);
+
+    triggerWheel(input, -10);
+    expect(input.getState().thrust).toBeLessThan(afterFirst + 0.02);
   });
 
   it('still scales larger wheel thrust changes proportionally', () => {
