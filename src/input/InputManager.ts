@@ -67,13 +67,24 @@ export class InputManager {
 
   getState(): InputState {
     const thrust = this.thrustLevel;
-    const strafe = (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
-    const verticalStrafe = (this.keys.has('Space') ? 1 : 0) - (this.keys.has('ShiftLeft') ? 1 : 0);
-    const yaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
-    // W = nose up (negative pitch), S = nose down (positive pitch), plus mouse pitch
-    const keyPitch = (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
+    const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
+
+    const strafe = shiftHeld
+      ? (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0)
+      : 0;
+    const verticalStrafe = shiftHeld
+      ? (this.keys.has('KeyW') ? 1 : 0) - (this.keys.has('KeyS') ? 1 : 0)
+      : 0;
+
+    const mouseYaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
+    const keyYaw = shiftHeld ? 0 : (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
+    const yaw = Math.max(-1, Math.min(1, mouseYaw + keyYaw));
+
+    // W = nose up (negative pitch), S = nose down (positive pitch), unless Shift is held for vertical strafe
+    const keyPitch = shiftHeld ? 0 : (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
     const mousePitch = Math.max(-1, Math.min(1, this.mouseY * 0.003));
     const pitch = Math.max(-1, Math.min(1, keyPitch + mousePitch));
+
     const roll = (this.keys.has('KeyE') ? 1 : 0) - (this.keys.has('KeyQ') ? 1 : 0);
     const firing = this.mouseDown;
 
