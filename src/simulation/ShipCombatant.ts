@@ -11,6 +11,7 @@ export interface ShipCombatantConfig {
   maxHealth: number;
   teamId: string;
   respawnDelay?: number;
+  spawnProtectionDuration?: number;
 }
 
 const HIT_FLASH_DURATION = 0.2;
@@ -28,6 +29,7 @@ export class ShipCombatant implements CombatTarget {
   hullClass: string;
   teamId: string;
   respawnDelay: number;
+  spawnProtectionDuration: number;
 
   private spawnPosition: Vec3;
   private spawnOrientation: Quat;
@@ -35,6 +37,7 @@ export class ShipCombatant implements CombatTarget {
   private damageFeedbackTimer: number;
   private recentDamageAmount: number;
   private respawnTimer: number;
+  private spawnProtectionTimer: number;
 
   constructor(config: ShipCombatantConfig) {
     this.id = config.id;
@@ -48,12 +51,14 @@ export class ShipCombatant implements CombatTarget {
     this.hullClass = config.hull.hullClass;
     this.teamId = config.teamId;
     this.respawnDelay = config.respawnDelay ?? 0;
+    this.spawnProtectionDuration = config.spawnProtectionDuration ?? 0;
     this.spawnPosition = { ...config.hull.position };
     this.spawnOrientation = config.hull.orientation.clone();
     this.hitFlashTimer = 0;
     this.damageFeedbackTimer = 0;
     this.recentDamageAmount = 0;
     this.respawnTimer = 0;
+    this.spawnProtectionTimer = this.spawnProtectionDuration;
   }
 
   get position(): Vec3 {
@@ -69,7 +74,7 @@ export class ShipCombatant implements CombatTarget {
   }
 
   takeDamage(amount: number): void {
-    if (!this.active || amount <= 0) {
+    if (!this.active || amount <= 0 || this.spawnProtectionTimer > 0) {
       return;
     }
 
@@ -88,6 +93,10 @@ export class ShipCombatant implements CombatTarget {
   update(dt: number): void {
     this.hitFlashTimer = Math.max(0, this.hitFlashTimer - dt);
     this.damageFeedbackTimer = Math.max(0, this.damageFeedbackTimer - dt);
+
+    if (this.active) {
+      this.spawnProtectionTimer = Math.max(0, this.spawnProtectionTimer - dt);
+    }
 
     if (this.damageFeedbackTimer === 0) {
       this.recentDamageAmount = 0;
@@ -111,6 +120,7 @@ export class ShipCombatant implements CombatTarget {
     this.damageFeedbackTimer = 0;
     this.recentDamageAmount = 0;
     this.respawnTimer = 0;
+    this.spawnProtectionTimer = this.spawnProtectionDuration;
     this.resetControls();
   }
 

@@ -61,6 +61,36 @@ describe('ShipCombatant', () => {
     expect(ship.getHitFlashRatio()).toBe(0);
     expect(ship.getRecentDamageAmount()).toBe(0);
   });
+
+  it('can ignore damage during an initial spawn protection window and restores that protection on respawn', () => {
+    const hull = createHull('fighter');
+    const ship = new ShipCombatant({
+      id: 'player',
+      hull,
+      radius: 5,
+      maxHealth: 100,
+      teamId: 'player',
+      respawnDelay: 1,
+      spawnProtectionDuration: 2,
+    });
+
+    ship.takeDamage(20);
+    expect(ship.health).toBe(100);
+
+    ship.update(2.1);
+    ship.takeDamage(20);
+    expect(ship.health).toBe(80);
+
+    ship.takeDamage(999);
+    expect(ship.isActive()).toBe(false);
+
+    ship.update(1.1);
+    expect(ship.isActive()).toBe(true);
+    expect(ship.health).toBe(100);
+
+    ship.takeDamage(20);
+    expect(ship.health).toBe(100);
+  });
 });
 
 describe('ProjectileSystem ship combatant collisions', () => {

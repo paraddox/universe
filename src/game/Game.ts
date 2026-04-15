@@ -85,6 +85,7 @@ export class Game {
       maxHealth: 100,
       teamId: 'player',
       respawnDelay: 3,
+      spawnProtectionDuration: 5,
     });
     this.projectileSystem = new ProjectileSystem();
     this.input.setKeyboardTurnResponse(hull.keyboardTurnResponse);
