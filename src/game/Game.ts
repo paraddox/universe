@@ -99,6 +99,7 @@ export class Game {
     const state = this.input.getState();
     this.playerController.setThrust(state.thrust);
     this.playerController.setStrafe(state.strafe);
+    this.playerController.setVerticalStrafe(state.verticalStrafe);
     this.playerController.setYaw(state.yaw);
     this.playerController.setPitch(state.pitch);
     this.playerController.setRoll(state.roll);
@@ -156,7 +157,6 @@ export class Game {
     this.renderer.cameraController.update(
       this.playerMesh.position,
       q,
-      dt,
     );
 
     // Debug HUD

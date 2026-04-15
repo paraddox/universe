@@ -150,4 +150,31 @@ describe('ShipController', () => {
     const result3 = ctrl.update(0.01);
     expect(result3.projectiles.length).toBe(1);
   });
+
+  it('vertical strafe applies movement along the ship local up axis', () => {
+    const hull = makeFighterHull();
+    const ctrl = new ShipController(hull);
+
+    // Positive roll rotates local up toward world -X
+    ctrl.setRoll(1);
+    ctrl.update(Math.PI / 2 / hull.turnRate);
+    ctrl.setRoll(0);
+
+    ctrl.setVerticalStrafe(1);
+    ctrl.update(0.1);
+
+    expect(hull.velocity.x).toBeLessThan(0);
+    expect(Math.abs(hull.velocity.y)).toBeLessThan(0.1);
+  });
+
+  it('does not apply damping while translational input is active', () => {
+    const hull = makeFighterHull();
+    hull.velocity = { x: 10, y: 0, z: 0 };
+    const ctrl = new ShipController(hull);
+
+    ctrl.setVerticalStrafe(1);
+    ctrl.update(0);
+
+    expect(hull.velocity.x).toBeCloseTo(10, 10);
+  });
 });

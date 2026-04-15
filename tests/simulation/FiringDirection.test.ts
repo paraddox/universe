@@ -91,4 +91,25 @@ describe('ShipController firing direction', () => {
     expect(fwd.y).toBeCloseTo(0, 2);
     expect(fwd.z).toBeCloseTo(0, 2);
   });
+
+  it('applies hardpoint local orientation to projectile direction', () => {
+    const hull = makeFighterHull();
+    hull.addHardpoint(new Hardpoint(
+      'wp',
+      { x: 0, y: 0, z: 1 },
+      { x: 0, y: Math.PI / 2, z: 0 },
+      'weapon',
+    ));
+    hull.mountWeapon('wp', new KineticCannon('light', 'player'));
+
+    const ctrl = new ShipController(hull);
+    ctrl.setFiring(true);
+    const result = ctrl.update(0.01);
+
+    expect(result.projectiles.length).toBe(1);
+    const vel = result.projectiles[0].velocity;
+    expect(vel.x).toBeGreaterThan(70);
+    expect(Math.abs(vel.y)).toBeLessThan(1);
+    expect(Math.abs(vel.z)).toBeLessThan(1);
+  });
 });

@@ -15,7 +15,7 @@ function makeHull(): ShipHull {
 }
 
 describe('Strafe direction', () => {
-  it('positive strafe moves ship to screen-right (+X at yaw=0)', () => {
+  it('positive strafe moves ship along ship-local right (+X at identity)', () => {
     const hull = makeHull();
     const ctrl = new ShipController(hull);
     ctrl.setStrafe(1);
@@ -23,7 +23,7 @@ describe('Strafe direction', () => {
     expect(hull.position.x).toBeGreaterThan(0);
   });
 
-  it('negative strafe moves ship to screen-left (-X at yaw=0)', () => {
+  it('negative strafe moves ship along ship-local left (-X at identity)', () => {
     const hull = makeHull();
     const ctrl = new ShipController(hull);
     ctrl.setStrafe(-1);

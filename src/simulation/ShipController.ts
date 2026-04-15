@@ -1,6 +1,7 @@
 import type { ShipHull } from './ShipHull.js';
 import type { ProjectileData, Vec3 } from './WeaponModule.js';
 import { Quat } from './Quat.js';
+import { applyRotation } from './RotationMath.js';
 
 const DAMPING = 0.98;
 
@@ -58,6 +59,10 @@ export class ShipController {
     return this.hull.orientation.rotateVector({ x: 1, y: 0, z: 0 });
   }
 
+  getUp(): Vec3 {
+    return this.hull.orientation.rotateVector({ x: 0, y: 1, z: 0 });
+  }
+
   update(dt: number): { projectiles: ProjectileData[] } {
     // Apply local-axis rotations via quaternion composition
     const turnDelta = this.hull.turnRate * dt;
@@ -78,14 +83,27 @@ export class ShipController {
     // Acceleration
     const forward = this.getForward();
     const right = this.getRight();
+    const up = this.getUp();
     const acceleration = this.hull.maxSpeed / this.hull.mass;
 
-    this.hull.velocity.x += (forward.x * this.thrust + right.x * this.strafe) * acceleration * dt;
-    this.hull.velocity.y += (forward.y * this.thrust + right.y * this.strafe) * acceleration * dt;
-    this.hull.velocity.z += (forward.z * this.thrust + right.z * this.strafe) * acceleration * dt;
+    this.hull.velocity.x += (
+      forward.x * this.thrust +
+      right.x * this.strafe +
+      up.x * this.verticalStrafe
+    ) * acceleration * dt;
+    this.hull.velocity.y += (
+      forward.y * this.thrust +
+      right.y * this.strafe +
+      up.y * this.verticalStrafe
+    ) * acceleration * dt;
+    this.hull.velocity.z += (
+      forward.z * this.thrust +
+      right.z * this.strafe +
+      up.z * this.verticalStrafe
+    ) * acceleration * dt;
 
-    // Damping when no thrust
-    if (this.thrust === 0) {
+    // Damping when no translational input is active
+    if (this.thrust === 0 && this.strafe === 0 && this.verticalStrafe === 0) {
       this.hull.velocity.x *= DAMPING;
       this.hull.velocity.y *= DAMPING;
       this.hull.velocity.z *= DAMPING;
@@ -110,7 +128,6 @@ export class ShipController {
     // Fire weapons
     const projectiles: ProjectileData[] = [];
     if (this.firing) {
-      const fwd = this.getForward();
       for (const hp of this.hull.hardpoints) {
         if (!hp.isOccupied()) continue;
         const weapon = hp.mountedModule!;
@@ -123,7 +140,14 @@ export class ShipController {
             y: this.hull.position.y + worldOffset.y,
             z: this.hull.position.z + worldOffset.z,
           };
-          const fired = weapon.fire(origin, fwd);
+          const localDirection = applyRotation(
+            { x: 0, y: 0, z: 1 },
+            hp.orientation.x,
+            hp.orientation.y,
+            hp.orientation.z,
+          );
+          const worldDirection = this.hull.orientation.rotateVector(localDirection);
+          const fired = weapon.fire(origin, worldDirection);
           projectiles.push(...fired);
         }
       }

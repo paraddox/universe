@@ -1,6 +1,8 @@
-// Rotation math matching Three.js Euler 'XYZ' order.
-// Three.js intrinsic XYZ means: M = Rx(pitch) * Ry(yaw) * Rz(roll)
-// Applied right-to-left: first Rz, then Ry, then Rx.
+// Rotation math matching the ship runtime convention: local-axis quaternion composition.
+// Starting from identity, yaw is applied around local +Y, then pitch around local +X,
+// then roll around local +Z — exactly the same order used by ShipController.
+
+import { Quat } from './Quat.js';
 
 export interface Vec3 {
   x: number;
@@ -9,29 +11,15 @@ export interface Vec3 {
 }
 
 /**
- * Apply Three.js Euler 'XYZ' rotation to a vector.
- * Matrix: M = Rx(pitch) * Ry(yaw) * Rz(roll)
+ * Apply the same local-axis quaternion rotation sequence used by ShipController.
  *
- * Matches Matrix4.makeRotationFromEuler exactly.
+ * orientation = I * qYaw(y) * qPitch(x) * qRoll(z)
  */
 export function applyRotation(v: Vec3, pitch: number, yaw: number, roll: number): Vec3 {
-  // Step 1: Rz(roll)
-  const cz = Math.cos(roll), sz = Math.sin(roll);
-  const rz_x = v.x * cz - v.y * sz;
-  const rz_y = v.x * sz + v.y * cz;
-  const rz_z = v.z;
+  const orientation = Quat.identity()
+    .multiply(Quat.fromAxisAngle({ x: 0, y: 1, z: 0 }, yaw))
+    .multiply(Quat.fromAxisAngle({ x: 1, y: 0, z: 0 }, pitch))
+    .multiply(Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, roll));
 
-  // Step 2: Ry(yaw)
-  const cy = Math.cos(yaw), sy = Math.sin(yaw);
-  const ry_x = rz_x * cy + rz_z * sy;
-  const ry_y = rz_y;
-  const ry_z = -rz_x * sy + rz_z * cy;
-
-  // Step 3: Rx(pitch)
-  const cx = Math.cos(pitch), sx = Math.sin(pitch);
-  return {
-    x: ry_x,
-    y: ry_y * cx - ry_z * sx,
-    z: ry_y * sx + ry_z * cx,
-  };
+  return orientation.rotateVector(v);
 }
