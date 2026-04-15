@@ -20,7 +20,7 @@ describe('TargetMesh', () => {
     expect(mesh.visible).toBe(true);
   });
 
-  it('updates visibility and color based on target state', () => {
+  it('updates visibility, color, and hit flash based on target state', () => {
     const target = new Target({
       id: 'dummy',
       position: { x: 1, y: 2, z: 3 },
@@ -30,6 +30,7 @@ describe('TargetMesh', () => {
     const mesh = createTargetMesh(target);
     const material = mesh.material as THREE.MeshStandardMaterial;
     const initialColor = material.color.getHex();
+    const initialScale = mesh.scale.x;
 
     target.takeDamage(50);
     target.position = { x: 5, y: 6, z: 7 };
@@ -40,6 +41,8 @@ describe('TargetMesh', () => {
     expect(mesh.position.z).toBe(7);
     expect(mesh.visible).toBe(true);
     expect(material.color.getHex()).not.toBe(initialColor);
+    expect(material.emissiveIntensity).toBeGreaterThan(0.35);
+    expect(mesh.scale.x).toBeGreaterThan(initialScale);
 
     target.takeDamage(100);
     updateTargetMesh(mesh, target);

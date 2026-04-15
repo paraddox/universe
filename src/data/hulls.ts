@@ -7,6 +7,7 @@ export interface HullDefinition {
   mass: number;
   maxSpeed: number;
   turnRate: number;
+  keyboardTurnResponse: number;
   hardpoints: {
     id: string;
     position: { x: number; y: number; z: number };
@@ -31,6 +32,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 1,
     maxSpeed: 30,
     turnRate: 2.5,
+    keyboardTurnResponse: 12,
     hardpoints: [
       { id: 'wp-left', position: { x: -1, y: 0, z: 1 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
       { id: 'wp-right', position: { x: 1, y: 0, z: 1 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -42,6 +44,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 3,
     maxSpeed: 50,
     turnRate: 3.0,
+    keyboardTurnResponse: 14,
     hardpoints: [
       { id: 'wp-left-wing', position: { x: -3, y: 0, z: 2 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
       { id: 'wp-right-wing', position: { x: 3, y: 0, z: 2 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -55,6 +58,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 10,
     maxSpeed: 25,
     turnRate: 1.5,
+    keyboardTurnResponse: 9,
     hardpoints: [
       { id: 'wp-nose-left', position: { x: -2, y: 0, z: 8 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
       { id: 'wp-nose-right', position: { x: 2, y: 0, z: 8 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -70,6 +74,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 40,
     maxSpeed: 15,
     turnRate: 0.8,
+    keyboardTurnResponse: 6,
     hardpoints: [
       { id: 'wp-fwd-1', position: { x: -3, y: 0, z: 16 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
       { id: 'wp-fwd-2', position: { x: -1, y: 0, z: 16 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -89,6 +94,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 80,
     maxSpeed: 12,
     turnRate: 0.5,
+    keyboardTurnResponse: 4,
     hardpoints: [
       { id: 'wp-fwd-1', position: { x: -4, y: 0, z: 24 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
       { id: 'wp-fwd-2', position: { x: -1.5, y: 0, z: 24 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -112,6 +118,7 @@ export const HULL_DEFINITIONS: Record<string, HullDefinition> = {
     mass: 160,
     maxSpeed: 8,
     turnRate: 0.3,
+    keyboardTurnResponse: 2,
     hardpoints: [
       // 8 forward
       { id: 'wp-fwd-1', position: { x: -6, y: 0, z: 32 }, orientation: { x: 0, y: 0, z: 0 }, slotType: 'weapon' },
@@ -154,6 +161,7 @@ export function createHull(hullClass: string): ShipHull {
     mass: def.mass,
     maxSpeed: def.maxSpeed,
     turnRate: def.turnRate,
+    keyboardTurnResponse: def.keyboardTurnResponse,
   });
 
   for (const hpDef of def.hardpoints) {

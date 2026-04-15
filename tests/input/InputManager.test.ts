@@ -127,6 +127,20 @@ describe('InputManager control mapping', () => {
     expect(state.verticalStrafe).toBeCloseTo(0, 10);
   });
 
+  it('supports per-ship keyboard turn response tuning', () => {
+    const slowInput = new InputManager();
+    slowInput.setKeyboardTurnResponse(2);
+    getKeys(slowInput).add('KeyW');
+    advanceInput(slowInput, 1 / 60);
+
+    const fastInput = new InputManager();
+    fastInput.setKeyboardTurnResponse(14);
+    getKeys(fastInput).add('KeyW');
+    advanceInput(fastInput, 1 / 60);
+
+    expect(Math.abs(fastInput.getState().pitch)).toBeGreaterThan(Math.abs(slowInput.getState().pitch));
+  });
+
   it('applies wheel thrust proportionally to scroll magnitude', () => {
     const input = new InputManager();
 

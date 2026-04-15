@@ -10,7 +10,7 @@ export interface InputState {
 
 const THRUST_SCROLL_SENSITIVITY = 0.001;
 const MAX_THRUST = 1;
-const KEYBOARD_TURN_RESPONSE = 8;
+const DEFAULT_KEYBOARD_TURN_RESPONSE = 8;
 
 function approach(current: number, target: number, maxDelta: number): number {
   if (current < target) {
@@ -32,6 +32,7 @@ export class InputManager {
   private thrustLevel: number = 0;
   private keyboardYaw: number = 0;
   private keyboardPitch: number = 0;
+  private keyboardTurnResponse: number = DEFAULT_KEYBOARD_TURN_RESPONSE;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
 
@@ -80,11 +81,15 @@ export class InputManager {
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
   }
 
+  setKeyboardTurnResponse(value: number): void {
+    this.keyboardTurnResponse = Math.max(0.1, value);
+  }
+
   update(dt: number): void {
     const shiftHeld = this.keys.has('ShiftLeft') || this.keys.has('ShiftRight');
     const targetKeyYaw = shiftHeld ? 0 : (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
     const targetKeyPitch = shiftHeld ? 0 : (this.keys.has('KeyS') ? 1 : 0) - (this.keys.has('KeyW') ? 1 : 0);
-    const maxDelta = KEYBOARD_TURN_RESPONSE * dt;
+    const maxDelta = this.keyboardTurnResponse * dt;
 
     this.keyboardYaw = approach(this.keyboardYaw, targetKeyYaw, maxDelta);
     this.keyboardPitch = approach(this.keyboardPitch, targetKeyPitch, maxDelta);

@@ -10,6 +10,7 @@ export interface ShipHullConfig {
   mass: number;
   maxSpeed: number;
   turnRate: number;
+  keyboardTurnResponse?: number;
 }
 
 export class ShipHull {
@@ -20,6 +21,7 @@ export class ShipHull {
   mass: number;
   maxSpeed: number;
   turnRate: number;
+  keyboardTurnResponse: number;
   hardpoints: Hardpoint[];
   position: Vec3;
   velocity: Vec3;
@@ -33,6 +35,7 @@ export class ShipHull {
     this.mass = config.mass;
     this.maxSpeed = config.maxSpeed;
     this.turnRate = config.turnRate;
+    this.keyboardTurnResponse = config.keyboardTurnResponse ?? 8;
     this.hardpoints = [];
     this.position = { x: 0, y: 0, z: 0 };
     this.velocity = { x: 0, y: 0, z: 0 };

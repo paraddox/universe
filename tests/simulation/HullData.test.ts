@@ -71,4 +71,13 @@ describe('HullData', () => {
       expect(HULL_DEFINITIONS[hullClass].dimensions).toBeDefined();
     }
   });
+
+  it('assigns snappier keyboard turn response to small ships than capital ships', () => {
+    const fighter = createHull('fighter');
+    const corvette = createHull('corvette');
+    const battlecruiser = createHull('battlecruiser');
+
+    expect(fighter.keyboardTurnResponse).toBeGreaterThan(corvette.keyboardTurnResponse);
+    expect(corvette.keyboardTurnResponse).toBeGreaterThan(battlecruiser.keyboardTurnResponse);
+  });
 });

@@ -33,6 +33,13 @@ function segmentSphereHit(start: Vec3, end: Vec3, center: Vec3, radius: number):
   return null;
 }
 
+export interface ProjectileHitEvent {
+  targetId: string;
+  damage: number;
+  destroyed: boolean;
+  position: Vec3;
+}
+
 export class ProjectileSystem {
   projectiles: Projectile[];
 
@@ -44,8 +51,9 @@ export class ProjectileSystem {
     this.projectiles.push(projectile);
   }
 
-  update(dt: number, targets: Target[] = []): void {
+  update(dt: number, targets: Target[] = []): ProjectileHitEvent[] {
     const remaining: Projectile[] = [];
+    const hits: ProjectileHitEvent[] = [];
 
     for (const p of this.projectiles) {
       if (!p.isActive()) {
@@ -55,6 +63,11 @@ export class ProjectileSystem {
       const start = { ...p.position };
       p.update(dt);
       const end = p.position;
+      const segment = {
+        x: end.x - start.x,
+        y: end.y - start.y,
+        z: end.z - start.z,
+      };
 
       let nearestTarget: Target | null = null;
       let nearestT = Infinity;
@@ -69,8 +82,20 @@ export class ProjectileSystem {
       }
 
       if (nearestTarget) {
+        const hitPosition = {
+          x: start.x + segment.x * nearestT,
+          y: start.y + segment.y * nearestT,
+          z: start.z + segment.z * nearestT,
+        };
+
         nearestTarget.takeDamage(p.damage);
         p.destroy();
+        hits.push({
+          targetId: nearestTarget.id,
+          damage: p.damage,
+          destroyed: !nearestTarget.isActive(),
+          position: hitPosition,
+        });
       }
 
       if (p.isActive()) {
@@ -79,6 +104,7 @@ export class ProjectileSystem {
     }
 
     this.projectiles = remaining;
+    return hits;
   }
 
   getActive(): Projectile[] {
