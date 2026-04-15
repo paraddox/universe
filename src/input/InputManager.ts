@@ -8,7 +8,7 @@ export interface InputState {
   firing: boolean;
 }
 
-const SCROLL_STEP = 0.1;
+const THRUST_SCROLL_SENSITIVITY = 0.001;
 const MAX_THRUST = 1;
 
 export class InputManager {
@@ -77,7 +77,7 @@ export class InputManager {
       : 0;
 
     const mouseYaw = Math.max(-1, Math.min(1, -this.mouseX * 0.003));
-    const keyYaw = shiftHeld ? 0 : (this.keys.has('KeyD') ? 1 : 0) - (this.keys.has('KeyA') ? 1 : 0);
+    const keyYaw = shiftHeld ? 0 : (this.keys.has('KeyA') ? 1 : 0) - (this.keys.has('KeyD') ? 1 : 0);
     const yaw = Math.max(-1, Math.min(1, mouseYaw + keyYaw));
 
     // W = nose up (negative pitch), S = nose down (positive pitch), unless Shift is held for vertical strafe
@@ -116,8 +116,8 @@ export class InputManager {
 
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
-    // Scroll up (negative deltaY) = increase thrust, scroll down = decrease
-    this.thrustLevel -= Math.sign(e.deltaY) * SCROLL_STEP;
+    // Scale thrust by actual scroll magnitude so high-resolution wheels/trackpads don't hit 100% immediately.
+    this.thrustLevel -= e.deltaY * THRUST_SCROLL_SENSITIVITY;
     this.thrustLevel = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel));
   }
 
