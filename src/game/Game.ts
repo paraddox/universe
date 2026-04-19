@@ -23,6 +23,7 @@ import { KineticCannon } from '../simulation/KineticCannon.js';
 import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
 import { createEnemyShipTargetMesh, updateEnemyShipTargetMesh } from '../render/EnemyShipTargetMesh.js';
 import { ForwardGunCrosshairOverlay } from '../render/ForwardGunCrosshair.js';
+import { shouldRenderProjectileVisual } from '../render/ProjectileVisibility.js';
 
 interface ProjectileVisual {
   meshId: number;
@@ -304,6 +305,10 @@ export class Game {
       const proj = new Projectile(pData);
       this.projectileSystem.add(proj);
 
+      if (!shouldRenderProjectileVisual(proj.position, this.playerShip.position)) {
+        continue;
+      }
+
       const meshId = this.renderer.projectileMesh.spawn(
         pData.position.x, pData.position.y, pData.position.z,
         pData.velocity.x, pData.velocity.y, pData.velocity.z,
@@ -322,6 +327,9 @@ export class Game {
     const toRemove: number[] = [];
     this.projectileVisuals.forEach((visual, id) => {
       if (!visual.projectile.isActive()) {
+        this.renderer.projectileMesh.destroy(visual.meshId);
+        toRemove.push(id);
+      } else if (!shouldRenderProjectileVisual(visual.projectile.position, this.playerShip.position)) {
         this.renderer.projectileMesh.destroy(visual.meshId);
         toRemove.push(id);
       } else {

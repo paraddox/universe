@@ -16,7 +16,7 @@ describe('KineticCannon', () => {
     expect(cannon.type).toBe('KineticCannon');
     expect(cannon.damage).toBe(5);
     expect(cannon.range).toBe(100);
-    expect(cannon.projectileSpeed).toBe(80);
+    expect(cannon.projectileSpeed).toBe(240);
     expect(cannon.cooldown).toBe(0.15);
   });
 
@@ -25,7 +25,7 @@ describe('KineticCannon', () => {
     const cannon = new KineticCannon('heavy', 'player-2');
     expect(cannon.damage).toBe(15);
     expect(cannon.range).toBe(150);
-    expect(cannon.projectileSpeed).toBe(60);
+    expect(cannon.projectileSpeed).toBe(180);
     expect(cannon.cooldown).toBe(0.4);
   });
 
@@ -36,7 +36,7 @@ describe('KineticCannon', () => {
   });
 
   // ── 4. Fire produces a correct projectile ──────────────────────────
-  it('fire() returns a projectile with correct position, velocity direction, and maxAge', () => {
+  it('fire() returns a projectile with correct position, velocity direction, and unlimited lifetime', () => {
     const cannon = new KineticCannon('light', 'player-1');
     const origin: Vec3 = { x: 1, y: 2, z: 3 };
     const direction: Vec3 = { x: 0, y: 0, z: 5 }; // not unit length
@@ -53,14 +53,13 @@ describe('KineticCannon', () => {
     // position is a copy of origin
     expect(p.position).toEqual({ x: 1, y: 2, z: 3 });
     expect(p.position).not.toBe(origin); // must be a copy
-    // maxAge = range / projectileSpeed
-    const expectedMaxAge = 100 / 80; // 1.25
-    expect(p.maxAge).toBeCloseTo(expectedMaxAge, 10);
+    // kinetic slugs do not expire in open space
+    expect(p.maxAge).toBe(Infinity);
     // velocity = normalize(direction) * projectileSpeed
     const n = normalize(direction);
-    expect(p.velocity.x).toBeCloseTo(n.x * 80, 10);
-    expect(p.velocity.y).toBeCloseTo(n.y * 80, 10);
-    expect(p.velocity.z).toBeCloseTo(n.z * 80, 10);
+    expect(p.velocity.x).toBeCloseTo(n.x * 240, 10);
+    expect(p.velocity.y).toBeCloseTo(n.y * 240, 10);
+    expect(p.velocity.z).toBeCloseTo(n.z * 240, 10);
   });
 
   // ── 5. After firing, canFire() returns false until cooldown expires ─
