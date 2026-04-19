@@ -116,18 +116,45 @@ describe('TargetingCrosshair', () => {
     expect(yawedProjected.y).toBeCloseTo(baseProjected.y, 4);
   });
 
-  it('updates a DOM overlay element with the projected targeting crosshair position', () => {
+  it('shows selected-target highlighting plus range and lead indicators when a target is locked', () => {
+    const mockDocument = createMockDocument();
+    const hull = mountPlayerWeapons();
+    const camera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
+    syncCameraToHull(camera, hull);
+
+    const movingTarget = new Target({
+      id: 'enemy',
+      position: { x: 0, y: 0, z: 120 },
+      radius: 6,
+      maxHealth: 60,
+    });
+    movingTarget.position = { x: 0, y: 0, z: 120 };
+    (movingTarget as unknown as { getVelocity: () => { x: number; y: number; z: number } }).getVelocity = () => ({ x: 25, y: 0, z: 0 });
+
+    const overlay = new TargetingCrosshairOverlay(mockDocument as unknown as Document);
+    overlay.update(camera, getAimSolution(hull, movingTarget), 1600, 900);
+
+    expect(mockDocument.body.appendChild).toHaveBeenCalled();
+    expect(overlay.element.style.left).toMatch(/px$/);
+    expect(overlay.element.style.top).toMatch(/px$/);
+    expect(overlay.element.style.opacity).toBe('1');
+    expect(overlay.rangeLabel.textContent).toBe('120m');
+    expect(overlay.rangeLabel.style.opacity).toBe('1');
+    expect(overlay.targetMarker.style.opacity).toBe('1');
+    expect(overlay.leadLine.style.opacity).toBe('1');
+  });
+
+  it('hides target-specific indicators when no target is locked', () => {
     const mockDocument = createMockDocument();
     const hull = mountPlayerWeapons();
     const camera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
     syncCameraToHull(camera, hull);
 
     const overlay = new TargetingCrosshairOverlay(mockDocument as unknown as Document);
-    overlay.update(camera, getAimSolution(hull).aimPoint, 1600, 900);
+    overlay.update(camera, getAimSolution(hull), 1600, 900);
 
-    expect(mockDocument.body.appendChild).toHaveBeenCalledTimes(1);
-    expect(overlay.element.style.left).toMatch(/px$/);
-    expect(overlay.element.style.top).toMatch(/px$/);
-    expect(overlay.element.style.opacity).toBe('1');
+    expect(overlay.rangeLabel.style.opacity).toBe('0');
+    expect(overlay.targetMarker.style.opacity).toBe('0');
+    expect(overlay.leadLine.style.opacity).toBe('0');
   });
 });

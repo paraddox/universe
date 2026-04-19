@@ -21,4 +21,5 @@ export interface CombatTarget {
   getHitFlashRatio(): number;
   getRecentDamageAmount(): number;
   getHitSpheres(): CollisionSphere[];
+  getVelocity(): Vec3;
 }

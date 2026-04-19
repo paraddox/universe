@@ -7,6 +7,7 @@ import {
   getFixedWeaponFireDirection,
   getForwardWeaponAimDistance,
 } from '../../src/simulation/TargetingSystem.js';
+import { ShipCombatant } from '../../src/simulation/ShipCombatant.js';
 
 describe('TargetingSystem', () => {
   it('uses the shortest range among forward-pointing mounted guns for untargeted convergence', () => {
@@ -28,7 +29,7 @@ describe('TargetingSystem', () => {
     expect(solution.aimPoint).toEqual({ x: 0, y: 0, z: 600 });
   });
 
-  it('uses the selected target position as the aim point when a live target is locked', () => {
+  it('uses the selected target position as the aim point when a live static target is locked', () => {
     const hull = createHull('fighter');
     hull.mountWeapon('wp-left-wing', new KineticCannon('light', 'player'));
     hull.mountWeapon('wp-right-wing', new KineticCannon('light', 'player'));
@@ -43,8 +44,10 @@ describe('TargetingSystem', () => {
     const solution = getAimSolution(hull, target);
 
     expect(solution.selectedTargetId).toBe('range-dummy');
+    expect(solution.targetPoint).toEqual(target.position);
     expect(solution.aimPoint).toEqual(target.position);
-    expect(solution.aimDistance).toBeCloseTo(Math.sqrt((10 ** 2) + (4 ** 2) + (80 ** 2)), 10);
+    expect(solution.targetDistance).toBeCloseTo(Math.sqrt((10 ** 2) + (4 ** 2) + (80 ** 2)), 10);
+    expect(solution.interceptTime).toBeCloseTo(solution.targetDistance / 240, 5);
   });
 
   it('falls back to untargeted convergence when the selected target is inactive', () => {
@@ -63,7 +66,35 @@ describe('TargetingSystem', () => {
     const solution = getAimSolution(hull, target);
 
     expect(solution.selectedTargetId).toBeNull();
+    expect(solution.targetPoint).toBeNull();
     expect(solution.aimPoint).toEqual({ x: 0, y: 0, z: 600 });
+    expect(solution.interceptTime).toBeNull();
+  });
+
+  it('leads moving ship targets based on intercept time instead of aiming at their current position', () => {
+    const hull = createHull('fighter');
+    hull.mountWeapon('wp-left-wing', new KineticCannon('light', 'player'));
+    hull.mountWeapon('wp-right-wing', new KineticCannon('light', 'player'));
+
+    const targetHull = createHull('fighter');
+    targetHull.position = { x: 0, y: 0, z: 120 };
+    targetHull.velocity = { x: 30, y: 0, z: 0 };
+    const target = new ShipCombatant({
+      id: 'enemy-fighter',
+      hull: targetHull,
+      radius: 5,
+      maxHealth: 80,
+      teamId: 'enemy',
+    });
+
+    const solution = getAimSolution(hull, target);
+
+    expect(solution.selectedTargetId).toBe('enemy-fighter');
+    expect(solution.targetPoint).toEqual({ x: 0, y: 0, z: 120 });
+    expect(solution.interceptTime).toBeGreaterThan(0);
+    expect(solution.aimPoint.x).toBeGreaterThan(solution.targetPoint!.x);
+    expect(solution.aimPoint.z).toBeCloseTo(120, 1);
+    expect(solution.targetDistance).toBeCloseTo(120, 10);
   });
 
   it('allows fixed guns to deflect a little toward the current aim point', () => {

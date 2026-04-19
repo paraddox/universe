@@ -443,7 +443,7 @@ export class Game {
     );
 
     if (this.playerShip.isActive()) {
-      this.crosshair.update(this.renderer.camera, this.getAimSolution().aimPoint);
+      this.crosshair.update(this.renderer.camera, this.getAimSolution());
     } else {
       this.crosshair.hide();
     }

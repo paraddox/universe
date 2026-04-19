@@ -5,13 +5,17 @@ import type { CombatTarget } from './CombatTarget.js';
 import type { Vec3 } from './WeaponModule.js';
 
 const DEFAULT_FORWARD_WEAPON_RANGE = 100;
+const DEFAULT_FORWARD_WEAPON_PROJECTILE_SPEED = 240;
 const FORWARD_WEAPON_DOT_THRESHOLD = 0.95;
 const FIXED_GUN_MAX_DEFLECTION_RADIANS = Math.PI / 12;
 
 export interface AimSolution {
   aimPoint: Vec3;
+  targetPoint: Vec3 | null;
   aimDistance: number;
+  targetDistance: number;
   selectedTargetId: string | null;
+  interceptTime: number | null;
 }
 
 function clamp(value: number, min: number, max: number): number {
@@ -23,6 +27,22 @@ function subtract(a: Vec3, b: Vec3): Vec3 {
     x: a.x - b.x,
     y: a.y - b.y,
     z: a.z - b.z,
+  };
+}
+
+function add(a: Vec3, b: Vec3): Vec3 {
+  return {
+    x: a.x + b.x,
+    y: a.y + b.y,
+    z: a.z + b.z,
+  };
+}
+
+function scale(v: Vec3, amount: number): Vec3 {
+  return {
+    x: v.x * amount,
+    y: v.y * amount,
+    z: v.z * amount,
   };
 }
 
@@ -45,6 +65,37 @@ function normalize(v: Vec3): Vec3 {
 
 function dot(a: Vec3, b: Vec3): number {
   return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
+}
+
+function solveInterceptTime(relativePosition: Vec3, relativeVelocity: Vec3, projectileSpeed: number): number | null {
+  const a = dot(relativeVelocity, relativeVelocity) - (projectileSpeed * projectileSpeed);
+  const b = 2 * dot(relativePosition, relativeVelocity);
+  const c = dot(relativePosition, relativePosition);
+
+  if (Math.abs(a) < 1e-6) {
+    if (Math.abs(b) < 1e-6) {
+      return projectileSpeed > 0 ? Math.sqrt(c) / projectileSpeed : null;
+    }
+
+    const t = -c / b;
+    return t > 0 ? t : null;
+  }
+
+  const discriminant = (b * b) - (4 * a * c);
+  if (discriminant < 0) {
+    return null;
+  }
+
+  const sqrtDiscriminant = Math.sqrt(discriminant);
+  const t1 = (-b - sqrtDiscriminant) / (2 * a);
+  const t2 = (-b + sqrtDiscriminant) / (2 * a);
+  const positiveTimes = [t1, t2].filter((value) => value > 0);
+
+  if (positiveTimes.length === 0) {
+    return null;
+  }
+
+  return Math.min(...positiveTimes);
 }
 
 export function getShipForward(hull: ShipHull): Vec3 {
@@ -70,7 +121,7 @@ export function getHardpointBaseWorldDirection(hull: ShipHull, hardpoint: Hardpo
   return normalize(hull.orientation.rotateVector(localDirection));
 }
 
-function getForwardWeaponRanges(hull: ShipHull): number[] {
+function getForwardWeapons(hull: ShipHull): Array<{ range: number; projectileSpeed: number }> {
   const shipForward = getShipForward(hull);
   return hull.hardpoints.flatMap((hardpoint) => {
     if (!hardpoint.isOccupied()) {
@@ -82,7 +133,10 @@ function getForwardWeaponRanges(hull: ShipHull): number[] {
       return [];
     }
 
-    return [hardpoint.mountedModule!.range];
+    return [{
+      range: hardpoint.mountedModule!.range,
+      projectileSpeed: hardpoint.mountedModule!.projectileSpeed,
+    }];
   });
 }
 
@@ -90,12 +144,24 @@ export function getForwardWeaponAimDistance(
   hull: ShipHull,
   fallbackRange: number = DEFAULT_FORWARD_WEAPON_RANGE,
 ): number {
-  const forwardWeaponRanges = getForwardWeaponRanges(hull);
-  if (forwardWeaponRanges.length === 0) {
+  const forwardWeapons = getForwardWeapons(hull);
+  if (forwardWeapons.length === 0) {
     return fallbackRange;
   }
 
-  return Math.min(...forwardWeaponRanges);
+  return Math.min(...forwardWeapons.map((weapon) => weapon.range));
+}
+
+export function getForwardWeaponProjectileSpeed(
+  hull: ShipHull,
+  fallbackProjectileSpeed: number = DEFAULT_FORWARD_WEAPON_PROJECTILE_SPEED,
+): number {
+  const forwardWeapons = getForwardWeapons(hull);
+  if (forwardWeapons.length === 0) {
+    return fallbackProjectileSpeed;
+  }
+
+  return Math.min(...forwardWeapons.map((weapon) => weapon.projectileSpeed));
 }
 
 export function getAimSolution(
@@ -104,11 +170,23 @@ export function getAimSolution(
   fallbackRange: number = DEFAULT_FORWARD_WEAPON_RANGE,
 ): AimSolution {
   if (selectedTarget?.isActive()) {
-    const aimPoint = { ...selectedTarget.position };
+    const targetPoint = { ...selectedTarget.position };
+    const targetDistance = length(subtract(targetPoint, hull.position));
+    const projectileSpeed = getForwardWeaponProjectileSpeed(hull);
+    const relativePosition = subtract(targetPoint, hull.position);
+    const relativeVelocity = subtract(selectedTarget.getVelocity(), hull.velocity);
+    const interceptTime = solveInterceptTime(relativePosition, relativeVelocity, projectileSpeed);
+    const aimPoint = interceptTime === null
+      ? targetPoint
+      : add(targetPoint, scale(selectedTarget.getVelocity(), interceptTime));
+
     return {
       aimPoint,
+      targetPoint,
       aimDistance: length(subtract(aimPoint, hull.position)),
+      targetDistance,
       selectedTargetId: selectedTarget.id,
+      interceptTime,
     };
   }
 
@@ -120,8 +198,11 @@ export function getAimSolution(
       y: hull.position.y + (shipForward.y * aimDistance),
       z: hull.position.z + (shipForward.z * aimDistance),
     },
+    targetPoint: null,
     aimDistance,
+    targetDistance: aimDistance,
     selectedTargetId: null,
+    interceptTime: null,
   };
 }
 

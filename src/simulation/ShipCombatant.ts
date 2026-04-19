@@ -167,6 +167,10 @@ export class ShipCombatant implements CombatTarget {
     });
   }
 
+  getVelocity(): Vec3 {
+    return { ...this.hull.velocity };
+  }
+
   private resetControls(): void {
     this.controller.setThrust(0);
     this.controller.setStrafe(0);

@@ -114,4 +114,8 @@ export class Target implements CombatTarget {
       radius: this.radius,
     }];
   }
+
+  getVelocity(): Vec3 {
+    return { x: 0, y: 0, z: 0 };
+  }
 }
