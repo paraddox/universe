@@ -312,6 +312,7 @@ export class Game {
       const meshId = this.renderer.projectileMesh.spawn(
         pData.position.x, pData.position.y, pData.position.z,
         pData.velocity.x, pData.velocity.y, pData.velocity.z,
+        pData.damage,
       );
       if (meshId >= 0) {
         this.projectileVisuals.set(this.nextVisualId, { meshId, projectile: proj });

@@ -1,88 +1,161 @@
 import * as THREE from 'three';
 
 const MAX_PROJECTILES = 500;
-const PROJECTILE_LENGTH = 0.5;
-const PROJECTILE_RADIUS = 0.08;
+
+type ProjectileVisualProfile = {
+  coreRadius: number;
+  coreLength: number;
+  trailRadius: number;
+  trailLength: number;
+  trailOffset: number;
+};
+
+const LIGHT_PROJECTILE_VISUAL: ProjectileVisualProfile = {
+  coreRadius: 0.08,
+  coreLength: 0.8,
+  trailRadius: 0.15,
+  trailLength: 1.8,
+  trailOffset: -0.35,
+};
+
+const HEAVY_PROJECTILE_VISUAL: ProjectileVisualProfile = {
+  coreRadius: 0.12,
+  coreLength: 1.4,
+  trailRadius: 0.22,
+  trailLength: 3,
+  trailOffset: -0.8,
+};
+
+function getProjectileVisualProfile(damage: number): ProjectileVisualProfile {
+  return damage >= 10 ? HEAVY_PROJECTILE_VISUAL : LIGHT_PROJECTILE_VISUAL;
+}
+
+function createProjectileVisual(
+  coreGeometry: THREE.CylinderGeometry,
+  trailGeometry: THREE.CylinderGeometry,
+  coreMaterial: THREE.MeshBasicMaterial,
+  trailMaterial: THREE.MeshBasicMaterial,
+): THREE.Group {
+  const group = new THREE.Group();
+  group.visible = false;
+
+  const trail = new THREE.Mesh(trailGeometry, trailMaterial);
+  trail.name = 'projectile-trail';
+  trail.renderOrder = 2;
+  group.add(trail);
+
+  const core = new THREE.Mesh(coreGeometry, coreMaterial);
+  core.name = 'projectile-core';
+  core.renderOrder = 3;
+  group.add(core);
+
+  return group;
+}
 
 export class ProjectileMesh {
   private scene: THREE.Scene;
-  private pool: THREE.Mesh[] = [];
-  private active: Map<number, THREE.Mesh> = new Map();
-  private geometry: THREE.CylinderGeometry;
-  private material: THREE.MeshBasicMaterial;
+  private pool: THREE.Group[] = [];
+  private active: Map<number, THREE.Group> = new Map();
+  private coreGeometry: THREE.CylinderGeometry;
+  private trailGeometry: THREE.CylinderGeometry;
+  private coreMaterial: THREE.MeshBasicMaterial;
+  private trailMaterial: THREE.MeshBasicMaterial;
   private nextId = 0;
 
   constructor(scene: THREE.Scene) {
     this.scene = scene;
 
-    this.geometry = new THREE.CylinderGeometry(
-      Math.max(0.01, PROJECTILE_RADIUS),
-      Math.max(0.01, PROJECTILE_RADIUS),
-      PROJECTILE_LENGTH,
-      4,
-    );
-    // Rotate so cylinder points along Z (forward)
-    this.geometry.rotateX(Math.PI / 2);
+    this.coreGeometry = new THREE.CylinderGeometry(1, 1, 1, 6);
+    this.coreGeometry.rotateX(Math.PI / 2);
 
-    this.material = new THREE.MeshBasicMaterial({
-      color: 0xffaa00,
+    this.trailGeometry = new THREE.CylinderGeometry(1, 1, 1, 6);
+    this.trailGeometry.rotateX(Math.PI / 2);
+
+    this.coreMaterial = new THREE.MeshBasicMaterial({
+      color: 0xfff0cc,
     });
 
-    // Pre-allocate pool
+    this.trailMaterial = new THREE.MeshBasicMaterial({
+      color: 0xff9955,
+      transparent: true,
+      opacity: 0.6,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+
     for (let i = 0; i < MAX_PROJECTILES; i++) {
-      const mesh = new THREE.Mesh(this.geometry, this.material);
-      mesh.visible = false;
-      this.scene.add(mesh);
-      this.pool.push(mesh);
+      const visual = createProjectileVisual(
+        this.coreGeometry,
+        this.trailGeometry,
+        this.coreMaterial,
+        this.trailMaterial,
+      );
+      this.scene.add(visual);
+      this.pool.push(visual);
     }
   }
 
-  spawn(x: number, y: number, z: number, vx: number, vy: number, vz: number): number {
-    const mesh = this.pool.pop();
-    if (!mesh) return -1;
+  spawn(x: number, y: number, z: number, vx: number, vy: number, vz: number, damage: number = 5): number {
+    const visual = this.pool.pop();
+    if (!visual) return -1;
 
     const id = this.nextId++;
-    mesh.position.set(x, y, z);
+    visual.position.set(x, y, z);
 
-    // Orient along velocity
     if (vx !== 0 || vy !== 0 || vz !== 0) {
-      mesh.lookAt(x + vx, y + vy, z + vz);
+      visual.lookAt(x + vx, y + vy, z + vz);
     }
 
-    mesh.visible = true;
-    this.active.set(id, mesh);
+    const profile = getProjectileVisualProfile(damage);
+    const core = visual.getObjectByName('projectile-core');
+    const trail = visual.getObjectByName('projectile-trail');
+
+    if (core instanceof THREE.Mesh) {
+      core.scale.set(profile.coreRadius, profile.coreRadius, profile.coreLength);
+      core.position.set(0, 0, 0);
+    }
+
+    if (trail instanceof THREE.Mesh) {
+      trail.scale.set(profile.trailRadius, profile.trailRadius, profile.trailLength);
+      trail.position.set(0, 0, profile.trailOffset);
+    }
+
+    visual.visible = true;
+    this.active.set(id, visual);
     return id;
   }
 
   update(id: number, x: number, y: number, z: number): void {
-    const mesh = this.active.get(id);
-    if (!mesh) return;
-    mesh.position.set(x, y, z);
+    const visual = this.active.get(id);
+    if (!visual) return;
+    visual.position.set(x, y, z);
   }
 
   destroy(id: number): void {
-    const mesh = this.active.get(id);
-    if (!mesh) return;
-    mesh.visible = false;
+    const visual = this.active.get(id);
+    if (!visual) return;
+    visual.visible = false;
     this.active.delete(id);
-    this.pool.push(mesh);
+    this.pool.push(visual);
   }
 
   destroyAll(): void {
-    this.active.forEach((mesh) => {
-      mesh.visible = false;
-      this.pool.push(mesh);
+    this.active.forEach((visual) => {
+      visual.visible = false;
+      this.pool.push(visual);
     });
     this.active.clear();
   }
 
   dispose(): void {
     this.destroyAll();
-    for (const mesh of this.pool) {
-      this.scene.remove(mesh);
+    for (const visual of this.pool) {
+      this.scene.remove(visual);
     }
-    this.geometry.dispose();
-    this.material.dispose();
+    this.coreGeometry.dispose();
+    this.trailGeometry.dispose();
+    this.coreMaterial.dispose();
+    this.trailMaterial.dispose();
     this.pool = [];
   }
 }
