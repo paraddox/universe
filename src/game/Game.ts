@@ -22,8 +22,10 @@ import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
 import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
 import { createEnemyShipTargetMesh, updateEnemyShipTargetMesh } from '../render/EnemyShipTargetMesh.js';
-import { ForwardGunCrosshairOverlay } from '../render/ForwardGunCrosshair.js';
+import { TargetingCrosshairOverlay, projectAimPointCrosshair } from '../render/TargetingCrosshair.js';
 import { shouldRenderProjectileVisual } from '../render/ProjectileVisibility.js';
+import { getAimSolution } from '../simulation/TargetingSystem.js';
+import { selectTargetUnderCrosshair } from './TargetLocking.js';
 
 interface ProjectileVisual {
   meshId: number;
@@ -65,7 +67,8 @@ export class Game {
   private enemyShips: ShipCombatant[] = [];
   private enemyAIs: EnemyShipAI[] = [];
   private targetVisuals: Map<string, TargetVisual> = new Map();
-  private crosshair: ForwardGunCrosshairOverlay;
+  private crosshair: TargetingCrosshairOverlay;
+  private selectedTarget: CombatTarget | null = null;
 
   private running = false;
 
@@ -73,7 +76,7 @@ export class Game {
     this.renderer = new GameRenderer(canvas);
     this.input = new InputManager();
     this.input.attach(canvas);
-    this.crosshair = new ForwardGunCrosshairOverlay();
+    this.crosshair = new TargetingCrosshairOverlay();
 
     // Create player ship — Fighter with 4 light kinetic cannons
     const hull = createHull('fighter');
@@ -237,6 +240,53 @@ export class Game {
     this.renderer.scene.add(object);
   }
 
+  private getTargetableObjects(): CombatTarget[] {
+    return [...this.enemyShips, ...this.targets];
+  }
+
+  private getAimSolution() {
+    return getAimSolution(this.playerShip.hull, this.selectedTarget);
+  }
+
+  private updateSelectedTarget(): void {
+    if (this.selectedTarget && !this.selectedTarget.isActive()) {
+      this.selectedTarget = null;
+    }
+  }
+
+  private handleTargetLockRequest(): void {
+    const aimSolution = this.getAimSolution();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    const projected = projectAimPointCrosshair(
+      this.renderer.camera,
+      aimSolution.aimPoint,
+      viewportWidth,
+      viewportHeight,
+    );
+
+    if (!projected.visible) {
+      this.selectedTarget = null;
+      return;
+    }
+
+    const target = selectTargetUnderCrosshair(
+      this.renderer.camera,
+      this.getTargetableObjects(),
+      projected.x,
+      projected.y,
+      viewportWidth,
+      viewportHeight,
+    );
+
+    if (target && this.selectedTarget?.id === target.id) {
+      this.selectedTarget = null;
+      return;
+    }
+
+    this.selectedTarget = target;
+  }
+
   start(): void {
     this.running = true;
     this.lastTime = performance.now();
@@ -258,7 +308,14 @@ export class Game {
 
     // Input
     this.input.update(dt);
+    this.updateSelectedTarget();
+    if (this.input.consumeTargetLockRequest()) {
+      this.handleTargetLockRequest();
+    }
+
     const state = this.input.getState();
+    const selectedTarget = this.selectedTarget?.isActive() ? this.selectedTarget : null;
+    this.playerShip.controller.setSelectedTarget(selectedTarget);
     if (this.playerShip.isActive()) {
       this.playerShip.controller.setThrust(state.thrust);
       this.playerShip.controller.setStrafe(state.strafe);
@@ -269,6 +326,7 @@ export class Game {
       this.playerShip.controller.setFiring(state.firing);
       this.thrustLevel = state.thrust;
     } else {
+      this.playerShip.controller.setSelectedTarget(null);
       this.playerShip.controller.setThrust(0);
       this.playerShip.controller.setStrafe(0);
       this.playerShip.controller.setVerticalStrafe(0);
@@ -323,6 +381,7 @@ export class Game {
     // Update projectiles + resolve target hits
     const combatTargets: CombatTarget[] = [this.playerShip, ...this.enemyShips, ...this.targets];
     this.projectileSystem.update(dt, combatTargets);
+    this.updateSelectedTarget();
 
     // Sync projectile visuals
     const toRemove: number[] = [];
@@ -384,7 +443,7 @@ export class Game {
     );
 
     if (this.playerShip.isActive()) {
-      this.crosshair.update(this.renderer.camera, this.playerShip.hull);
+      this.crosshair.update(this.renderer.camera, this.getAimSolution().aimPoint);
     } else {
       this.crosshair.hide();
     }
@@ -433,14 +492,19 @@ export class Game {
       document.body.appendChild(this.debugEl);
     }
     const fwd = this.playerShip.controller.getForward();
+    const aimSolution = this.getAimSolution();
     const playerStatus = this.playerShip.isActive()
       ? `${Math.round(this.playerShip.health)}/${this.playerShip.maxHealth}`
       : 'reforming';
+    const targetLockStatus = this.selectedTarget
+      ? `${this.selectedTarget.id} @ ${Math.round(aimSolution.aimDistance)}`
+      : `none (${Math.round(aimSolution.aimDistance)} convergence)`;
     this.debugEl.innerHTML = `
       <div>Ship: ${this.playerShip.hull.hullClass}</div>
       <div>Hull: ${playerStatus}</div>
       <div>Forward: (${fwd.x.toFixed(2)}, ${fwd.y.toFixed(2)}, ${fwd.z.toFixed(2)})</div>
       <div>Thrust: ${this.getThrustPercent()}%</div>
+      <div>Target Lock: ${targetLockStatus}</div>
       <div>Projectiles: ${this.projectileVisuals.size}</div>
       <div>Targets:</div>
       ${this.renderTargetStatus()}

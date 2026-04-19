@@ -38,6 +38,7 @@ export class InputManager {
   private protectInitialZeroEscape: boolean = false;
   private canvas: HTMLCanvasElement | null = null;
   private pointerLocked: boolean = false;
+  private targetLockRequested: boolean = false;
 
   private boundKeyDown: (e: KeyboardEvent) => void;
   private boundKeyUp: (e: KeyboardEvent) => void;
@@ -125,6 +126,9 @@ export class InputManager {
 
   private onKeyDown(e: KeyboardEvent): void {
     this.keys.add(e.code);
+    if (e.code === 'KeyT' && !e.repeat) {
+      this.targetLockRequested = true;
+    }
   }
 
   private onKeyUp(e: KeyboardEvent): void {
@@ -207,5 +211,11 @@ export class InputManager {
   resetMouseDelta(): void {
     this.mouseX = 0;
     this.mouseY = 0;
+  }
+
+  consumeTargetLockRequest(): boolean {
+    const requested = this.targetLockRequested;
+    this.targetLockRequested = false;
+    return requested;
   }
 }

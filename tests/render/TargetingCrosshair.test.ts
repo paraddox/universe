@@ -4,11 +4,12 @@ import { CameraController } from '../../src/render/CameraController.js';
 import { createHull } from '../../src/data/hulls.js';
 import { KineticCannon } from '../../src/simulation/KineticCannon.js';
 import { Quat } from '../../src/simulation/Quat.js';
+import { Target } from '../../src/simulation/Target.js';
+import { getAimSolution } from '../../src/simulation/TargetingSystem.js';
 import {
-  ForwardGunCrosshairOverlay,
-  getForwardGunAimDistance,
-  projectForwardGunCrosshair,
-} from '../../src/render/ForwardGunCrosshair.js';
+  TargetingCrosshairOverlay,
+  projectAimPointCrosshair,
+} from '../../src/render/TargetingCrosshair.js';
 
 function mountPlayerWeapons(): ReturnType<typeof createHull> {
   const hull = createHull('fighter');
@@ -60,21 +61,42 @@ function createMockDocument() {
   };
 }
 
-describe('ForwardGunCrosshair', () => {
-  it('projects the default fighter forward guns near the horizontal center of the screen', () => {
+describe('TargetingCrosshair', () => {
+  it('projects the default fighter convergence point near the horizontal center of the screen', () => {
     const hull = mountPlayerWeapons();
     const camera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
 
     syncCameraToHull(camera, hull);
 
-    const projected = projectForwardGunCrosshair(camera, hull, 1600, 900);
+    const solution = getAimSolution(hull);
+    const projected = projectAimPointCrosshair(camera, solution.aimPoint, 1600, 900);
 
     expect(projected.visible).toBe(true);
     expect(projected.x).toBeCloseTo(800, 1);
     expect(projected.y).toBeLessThan(225);
   });
 
-  it('keeps the crosshair stable under yaw because the chase camera is rigidly mounted to the ship', () => {
+  it('moves the crosshair toward the ship when a closer locked target becomes the convergence point', () => {
+    const hull = mountPlayerWeapons();
+    const camera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
+
+    syncCameraToHull(camera, hull);
+
+    const defaultProjected = projectAimPointCrosshair(camera, getAimSolution(hull).aimPoint, 1600, 900);
+    const lockedTarget = new Target({
+      id: 'range-dummy',
+      position: { x: 0, y: 0, z: 80 },
+      radius: 6,
+      maxHealth: 60,
+    });
+    const targetedProjected = projectAimPointCrosshair(camera, getAimSolution(hull, lockedTarget).aimPoint, 1600, 900);
+
+    expect(targetedProjected.visible).toBe(true);
+    expect(targetedProjected.x).toBeCloseTo(defaultProjected.x, 4);
+    expect(targetedProjected.y).toBeGreaterThan(defaultProjected.y);
+  });
+
+  it('keeps the convergence crosshair stable under yaw because the chase camera is rigidly mounted to the ship', () => {
     const baseHull = mountPlayerWeapons();
     const yawedHull = mountPlayerWeapons();
 
@@ -86,56 +108,22 @@ describe('ForwardGunCrosshair', () => {
     syncCameraToHull(baseCamera, baseHull);
     syncCameraToHull(yawedCamera, yawedHull);
 
-    const baseProjected = projectForwardGunCrosshair(baseCamera, baseHull, 1600, 900);
-    const yawedProjected = projectForwardGunCrosshair(yawedCamera, yawedHull, 1600, 900);
+    const baseProjected = projectAimPointCrosshair(baseCamera, getAimSolution(baseHull).aimPoint, 1600, 900);
+    const yawedProjected = projectAimPointCrosshair(yawedCamera, getAimSolution(yawedHull).aimPoint, 1600, 900);
 
     expect(yawedProjected.visible).toBe(true);
     expect(yawedProjected.x).toBeCloseTo(baseProjected.x, 4);
     expect(yawedProjected.y).toBeCloseTo(baseProjected.y, 4);
   });
 
-  it('keeps the crosshair stable under pure roll because forward direction is roll-independent', () => {
-    const baseHull = mountPlayerWeapons();
-    const rolledHull = mountPlayerWeapons();
-
-    rolledHull.orientation = Quat.fromAxisAngle({ x: 0, y: 0, z: 1 }, Math.PI / 2);
-
-    const baseCamera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
-    const rolledCamera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
-
-    syncCameraToHull(baseCamera, baseHull);
-    syncCameraToHull(rolledCamera, rolledHull);
-
-    const baseProjected = projectForwardGunCrosshair(baseCamera, baseHull, 1600, 900);
-    const rolledProjected = projectForwardGunCrosshair(rolledCamera, rolledHull, 1600, 900);
-
-    expect(rolledProjected.visible).toBe(true);
-    expect(rolledProjected.x).toBeCloseTo(baseProjected.x, 4);
-    expect(rolledProjected.y).toBeCloseTo(baseProjected.y, 4);
-  });
-
-  it('uses the shortest range among forward-pointing mounted guns', () => {
-    const hull = createHull('fighter');
-    hull.mountWeapon('wp-left-wing', new KineticCannon('heavy', 'player'));
-    hull.mountWeapon('wp-right-wing', new KineticCannon('light', 'player'));
-
-    const leftWing = hull.getHardpoint('wp-left-wing');
-    if (!leftWing) {
-      throw new Error('Expected wp-left-wing hardpoint');
-    }
-    leftWing.orientation.y = Math.PI / 2;
-
-    expect(getForwardGunAimDistance(hull)).toBe(600);
-  });
-
-  it('updates a DOM overlay element with the projected crosshair position', () => {
+  it('updates a DOM overlay element with the projected targeting crosshair position', () => {
     const mockDocument = createMockDocument();
     const hull = mountPlayerWeapons();
     const camera = new THREE.PerspectiveCamera(60, 1600 / 900, 0.1, 2000);
     syncCameraToHull(camera, hull);
 
-    const overlay = new ForwardGunCrosshairOverlay(mockDocument as unknown as Document);
-    overlay.update(camera, hull, 1600, 900);
+    const overlay = new TargetingCrosshairOverlay(mockDocument as unknown as Document);
+    overlay.update(camera, getAimSolution(hull).aimPoint, 1600, 900);
 
     expect(mockDocument.body.appendChild).toHaveBeenCalledTimes(1);
     expect(overlay.element.style.left).toMatch(/px$/);

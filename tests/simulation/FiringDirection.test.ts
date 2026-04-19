@@ -3,6 +3,7 @@ import { ShipController } from '../../src/simulation/ShipController.js';
 import { ShipHull } from '../../src/simulation/ShipHull.js';
 import { Hardpoint } from '../../src/simulation/Hardpoint.js';
 import { KineticCannon } from '../../src/simulation/KineticCannon.js';
+import { Target } from '../../src/simulation/Target.js';
 
 function makeFighterHull(): ShipHull {
   const hull = new ShipHull({
@@ -148,5 +149,66 @@ describe('ShipController firing direction', () => {
     const vel = result.projectiles[0].velocity;
     expect(vel.x).toBeGreaterThan(70);
     expect(vel.z).toBeCloseTo(20, 10);
+  });
+
+  it('converges fixed wing guns more strongly when a closer target is selected', () => {
+    const untargetedHull = makeFighterHull();
+    untargetedHull.addHardpoint(new Hardpoint('left', { x: -3, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    untargetedHull.addHardpoint(new Hardpoint('right', { x: 3, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    untargetedHull.mountWeapon('left', new KineticCannon('light', 'player'));
+    untargetedHull.mountWeapon('right', new KineticCannon('light', 'player'));
+
+    const targetedHull = makeFighterHull();
+    targetedHull.addHardpoint(new Hardpoint('left', { x: -3, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    targetedHull.addHardpoint(new Hardpoint('right', { x: 3, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    targetedHull.mountWeapon('left', new KineticCannon('light', 'player'));
+    targetedHull.mountWeapon('right', new KineticCannon('light', 'player'));
+
+    const untargetedCtrl = new ShipController(untargetedHull);
+    untargetedCtrl.setFiring(true);
+    const untargetedShots = untargetedCtrl.update(0.01).projectiles;
+
+    const targetedCtrl = new ShipController(targetedHull);
+    targetedCtrl.setSelectedTarget(new Target({
+      id: 'close-dummy',
+      position: { x: 0, y: 0, z: 80 },
+      radius: 6,
+      maxHealth: 60,
+    }));
+    targetedCtrl.setFiring(true);
+    const targetedShots = targetedCtrl.update(0.01).projectiles;
+
+    const untargetedLeft = untargetedShots.find((shot) => shot.position.x < 0);
+    const untargetedRight = untargetedShots.find((shot) => shot.position.x > 0);
+    const targetedLeft = targetedShots.find((shot) => shot.position.x < 0);
+    const targetedRight = targetedShots.find((shot) => shot.position.x > 0);
+
+    expect(untargetedLeft).toBeDefined();
+    expect(untargetedRight).toBeDefined();
+    expect(targetedLeft).toBeDefined();
+    expect(targetedRight).toBeDefined();
+
+    expect(targetedLeft!.velocity.x).toBeGreaterThan(untargetedLeft!.velocity.x);
+    expect(targetedRight!.velocity.x).toBeLessThan(untargetedRight!.velocity.x);
+  });
+
+  it('does not let a selected target behind the ship pull fixed guns backward', () => {
+    const hull = makeFighterHull();
+    hull.addHardpoint(new Hardpoint('wp', { x: -3, y: 0, z: 2 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    hull.mountWeapon('wp', new KineticCannon('light', 'player'));
+
+    const ctrl = new ShipController(hull);
+    ctrl.setSelectedTarget(new Target({
+      id: 'rear-target',
+      position: { x: 0, y: 0, z: -80 },
+      radius: 6,
+      maxHealth: 60,
+    }));
+    ctrl.setFiring(true);
+
+    const result = ctrl.update(0.01);
+
+    expect(result.projectiles.length).toBe(1);
+    expect(result.projectiles[0].velocity.z).toBeGreaterThan(0);
   });
 });

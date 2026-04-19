@@ -1,54 +1,10 @@
 import * as THREE from 'three';
-import type { ShipHull } from '../simulation/ShipHull.js';
-import { applyRotation } from '../simulation/RotationMath.js';
-
-const DEFAULT_FORWARD_GUN_RANGE = 100;
-const FORWARD_GUN_DOT_THRESHOLD = 0.95;
+import type { Vec3 } from '../simulation/WeaponModule.js';
 
 export interface ScreenProjection {
   x: number;
   y: number;
   visible: boolean;
-}
-
-function dot(a: { x: number; y: number; z: number }, b: { x: number; y: number; z: number }): number {
-  return (a.x * b.x) + (a.y * b.y) + (a.z * b.z);
-}
-
-function getShipForward(hull: ShipHull): { x: number; y: number; z: number } {
-  return hull.orientation.rotateVector({ x: 0, y: 0, z: 1 });
-}
-
-export function getForwardGunAimDistance(
-  hull: ShipHull,
-  fallbackRange: number = DEFAULT_FORWARD_GUN_RANGE,
-): number {
-  const shipForward = getShipForward(hull);
-  const forwardWeaponRanges = hull.hardpoints.flatMap((hp) => {
-    if (!hp.isOccupied()) {
-      return [];
-    }
-
-    const localDirection = applyRotation(
-      { x: 0, y: 0, z: 1 },
-      hp.orientation.x,
-      hp.orientation.y,
-      hp.orientation.z,
-    );
-    const worldDirection = hull.orientation.rotateVector(localDirection);
-
-    if (dot(worldDirection, shipForward) < FORWARD_GUN_DOT_THRESHOLD) {
-      return [];
-    }
-
-    return [hp.mountedModule!.range];
-  });
-
-  if (forwardWeaponRanges.length === 0) {
-    return fallbackRange;
-  }
-
-  return Math.min(...forwardWeaponRanges);
 }
 
 export function projectWorldPoint(
@@ -71,30 +27,26 @@ export function projectWorldPoint(
   };
 }
 
-export function projectForwardGunCrosshair(
+export function projectAimPointCrosshair(
   camera: THREE.PerspectiveCamera,
-  hull: ShipHull,
+  aimPoint: Vec3,
   viewportWidth: number,
   viewportHeight: number,
-  fallbackRange: number = DEFAULT_FORWARD_GUN_RANGE,
 ): ScreenProjection {
-  const shipForward = getShipForward(hull);
-  const aimDistance = getForwardGunAimDistance(hull, fallbackRange);
-  const aimPoint = new THREE.Vector3(
-    hull.position.x + (shipForward.x * aimDistance),
-    hull.position.y + (shipForward.y * aimDistance),
-    hull.position.z + (shipForward.z * aimDistance),
+  return projectWorldPoint(
+    camera,
+    new THREE.Vector3(aimPoint.x, aimPoint.y, aimPoint.z),
+    viewportWidth,
+    viewportHeight,
   );
-
-  return projectWorldPoint(camera, aimPoint, viewportWidth, viewportHeight);
 }
 
-export class ForwardGunCrosshairOverlay {
+export class TargetingCrosshairOverlay {
   readonly element: HTMLDivElement;
 
   constructor(doc: Document = document) {
     const root = doc.createElement('div');
-    root.id = 'forward-gun-crosshair';
+    root.id = 'targeting-crosshair';
     root.style.cssText = [
       'position: fixed',
       'left: 50%',
@@ -156,13 +108,13 @@ export class ForwardGunCrosshairOverlay {
 
   update(
     camera: THREE.PerspectiveCamera,
-    hull: ShipHull,
+    aimPoint: Vec3,
     viewportWidth: number = window.innerWidth,
     viewportHeight: number = window.innerHeight,
   ): void {
-    const projected = projectForwardGunCrosshair(
+    const projected = projectAimPointCrosshair(
       camera,
-      hull,
+      aimPoint,
       viewportWidth,
       viewportHeight,
     );

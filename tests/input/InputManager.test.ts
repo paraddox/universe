@@ -296,4 +296,14 @@ describe('InputManager control mapping', () => {
     keys.add('KeyE');
     expect(input.getState().roll).toBe(1);
   });
+
+  it('latches KeyT as a one-shot target lock request', () => {
+    const input = new InputManager();
+    const onKeyDown = (input as unknown as { onKeyDown: (e: { code: string; repeat?: boolean }) => void }).onKeyDown;
+
+    onKeyDown.call(input, { code: 'KeyT', repeat: false });
+
+    expect(input.consumeTargetLockRequest()).toBe(true);
+    expect(input.consumeTargetLockRequest()).toBe(false);
+  });
 });

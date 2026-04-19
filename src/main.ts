@@ -35,6 +35,7 @@ overlay.innerHTML = `
     <div>Mouse — Aim (click to capture)</div>
     <div>Scroll — Thrust</div>
     <div>Left Click — Fire Weapons</div>
+    <div>T — Lock / Clear target under crosshair</div>
     <div>ESC — Release Mouse</div>
   </div>
 `;

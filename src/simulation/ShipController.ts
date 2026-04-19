@@ -1,7 +1,12 @@
 import type { ShipHull } from './ShipHull.js';
 import type { ProjectileData, Vec3 } from './WeaponModule.js';
+import type { CombatTarget } from './CombatTarget.js';
 import { Quat } from './Quat.js';
-import { applyRotation } from './RotationMath.js';
+import {
+  getAimSolution,
+  getFixedWeaponFireDirection,
+  getHardpointWorldOrigin,
+} from './TargetingSystem.js';
 
 const DAMPING = 0.98;
 
@@ -18,6 +23,7 @@ export class ShipController {
   pitchInput: number = 0;
   rollInput: number = 0;
   firing: boolean = false;
+  selectedTarget: CombatTarget | null = null;
 
   constructor(hull: ShipHull) {
     this.hull = hull;
@@ -49,6 +55,10 @@ export class ShipController {
 
   setFiring(active: boolean): void {
     this.firing = active;
+  }
+
+  setSelectedTarget(target: CombatTarget | null): void {
+    this.selectedTarget = target;
   }
 
   getForward(): Vec3 {
@@ -129,26 +139,15 @@ export class ShipController {
 
     // Fire weapons
     const projectiles: ProjectileData[] = [];
+    const aimSolution = getAimSolution(this.hull, this.selectedTarget);
     if (this.firing) {
       for (const hp of this.hull.hardpoints) {
         if (!hp.isOccupied()) continue;
         const weapon = hp.mountedModule!;
         weapon.update(dt);
         if (weapon.canFire()) {
-          // Rotate hardpoint local position to world space using quaternion
-          const worldOffset = this.hull.orientation.rotateVector(hp.position);
-          const origin: Vec3 = {
-            x: this.hull.position.x + worldOffset.x,
-            y: this.hull.position.y + worldOffset.y,
-            z: this.hull.position.z + worldOffset.z,
-          };
-          const localDirection = applyRotation(
-            { x: 0, y: 0, z: 1 },
-            hp.orientation.x,
-            hp.orientation.y,
-            hp.orientation.z,
-          );
-          const worldDirection = this.hull.orientation.rotateVector(localDirection);
+          const origin = getHardpointWorldOrigin(this.hull, hp);
+          const worldDirection = getFixedWeaponFireDirection(this.hull, hp, aimSolution.aimPoint);
           const fired = weapon.fire(origin, worldDirection).map((projectile) => ({
             ...projectile,
             velocity: {
