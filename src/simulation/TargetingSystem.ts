@@ -209,12 +209,19 @@ export function getAimSolution(
 export function getFixedWeaponFireDirection(
   hull: ShipHull,
   hardpoint: Hardpoint,
-  aimPoint: Vec3,
+  aimTarget: Vec3 | AimSolution,
   maxDeflectionRadians: number = FIXED_GUN_TRACKING_ARC_RADIANS,
 ): Vec3 {
   const baseDirection = getHardpointBaseWorldDirection(hull, hardpoint);
   const origin = getHardpointWorldOrigin(hull, hardpoint);
-  const desiredDirection = normalize(subtract(aimPoint, origin));
+  const aimPoint = 'aimPoint' in aimTarget ? aimTarget.aimPoint : aimTarget;
+
+  let desiredVector = subtract(aimPoint, origin);
+  if ('aimPoint' in aimTarget && aimTarget.interceptTime !== null) {
+    desiredVector = subtract(desiredVector, scale(hull.velocity, aimTarget.interceptTime));
+  }
+
+  const desiredDirection = normalize(desiredVector);
   const alignment = clamp(dot(baseDirection, desiredDirection), -1, 1);
 
   if (alignment <= 0) {

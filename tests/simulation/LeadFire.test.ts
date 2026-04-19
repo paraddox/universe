@@ -60,4 +60,35 @@ describe('Lead-based firing against moving locked targets', () => {
 
     expect(hitEnemy).toBe(true);
   });
+
+  it('still hits a moving locked target when the firing ship already has lateral velocity', () => {
+    const player = makePlayer();
+    player.hull.velocity = { x: 30, y: 0, z: 0 };
+
+    const enemy = makeMovingEnemy();
+    enemy.hull.velocity = { x: 50, y: 0, z: 0 };
+
+    const projectileSystem = new ProjectileSystem();
+
+    player.controller.setSelectedTarget(enemy);
+    player.controller.setFiring(true);
+    const spawned = player.controller.update(0.01).projectiles;
+
+    expect(spawned.length).toBeGreaterThan(0);
+    for (const shot of spawned) {
+      projectileSystem.add(new Projectile(shot));
+    }
+
+    let hitEnemy = false;
+    for (let i = 0; i < 120; i++) {
+      enemy.hull.update(0.02);
+      const hits = projectileSystem.update(0.02, [enemy]);
+      if (hits.some((hit) => hit.targetId === enemy.id)) {
+        hitEnemy = true;
+        break;
+      }
+    }
+
+    expect(hitEnemy).toBe(true);
+  });
 });

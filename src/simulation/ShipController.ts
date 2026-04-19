@@ -147,7 +147,7 @@ export class ShipController {
         weapon.update(dt);
         if (weapon.canFire()) {
           const origin = getHardpointWorldOrigin(this.hull, hp);
-          const worldDirection = getFixedWeaponFireDirection(this.hull, hp, aimSolution.aimPoint);
+          const worldDirection = getFixedWeaponFireDirection(this.hull, hp, aimSolution);
           const fired = weapon.fire(origin, worldDirection).map((projectile) => ({
             ...projectile,
             velocity: {
