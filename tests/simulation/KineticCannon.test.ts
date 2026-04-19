@@ -15,7 +15,7 @@ describe('KineticCannon', () => {
     const cannon = new KineticCannon('light', 'player-1');
     expect(cannon.type).toBe('KineticCannon');
     expect(cannon.damage).toBe(5);
-    expect(cannon.range).toBe(100);
+    expect(cannon.range).toBe(600);
     expect(cannon.projectileSpeed).toBe(240);
     expect(cannon.cooldown).toBe(0.15);
   });
@@ -24,7 +24,7 @@ describe('KineticCannon', () => {
   it('heavy variant has correct stats', () => {
     const cannon = new KineticCannon('heavy', 'player-2');
     expect(cannon.damage).toBe(15);
-    expect(cannon.range).toBe(150);
+    expect(cannon.range).toBe(900);
     expect(cannon.projectileSpeed).toBe(180);
     expect(cannon.cooldown).toBe(0.4);
   });
@@ -36,7 +36,7 @@ describe('KineticCannon', () => {
   });
 
   // ── 4. Fire produces a correct projectile ──────────────────────────
-  it('fire() returns a projectile with correct position, velocity direction, and unlimited lifetime', () => {
+  it('fire() returns a projectile with correct position, velocity direction, and extended lifetime', () => {
     const cannon = new KineticCannon('light', 'player-1');
     const origin: Vec3 = { x: 1, y: 2, z: 3 };
     const direction: Vec3 = { x: 0, y: 0, z: 5 }; // not unit length
@@ -53,8 +53,8 @@ describe('KineticCannon', () => {
     // position is a copy of origin
     expect(p.position).toEqual({ x: 1, y: 2, z: 3 });
     expect(p.position).not.toBe(origin); // must be a copy
-    // kinetic slugs do not expire in open space
-    expect(p.maxAge).toBe(Infinity);
+    // kinetic slugs travel far, but still use a finite simulation lifetime
+    expect(p.maxAge).toBeCloseTo(600 / 240, 10);
     // velocity = normalize(direction) * projectileSpeed
     const n = normalize(direction);
     expect(p.velocity.x).toBeCloseTo(n.x * 240, 10);

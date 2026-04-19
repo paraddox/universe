@@ -7,8 +7,8 @@ function normalize(v: Vec3): Vec3 {
 }
 
 const VARIANTS = {
-  light: { damage: 5, range: 100, projectileSpeed: 240, cooldown: 0.15 },
-  heavy: { damage: 15, range: 150, projectileSpeed: 180, cooldown: 0.4 },
+  light: { damage: 5, range: 600, projectileSpeed: 240, cooldown: 0.15 },
+  heavy: { damage: 15, range: 900, projectileSpeed: 180, cooldown: 0.4 },
 } as const;
 
 export class KineticCannon implements WeaponModule {
@@ -55,7 +55,7 @@ export class KineticCannon implements WeaponModule {
         },
         damage: this.damage,
         ownerId: this._ownerId,
-        maxAge: Infinity,
+        maxAge: this.range / this.projectileSpeed,
       },
     ];
   }

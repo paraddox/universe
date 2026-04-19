@@ -125,7 +125,7 @@ describe('ForwardGunCrosshair', () => {
     }
     leftWing.orientation.y = Math.PI / 2;
 
-    expect(getForwardGunAimDistance(hull)).toBe(100);
+    expect(getForwardGunAimDistance(hull)).toBe(600);
   });
 
   it('updates a DOM overlay element with the projected crosshair position', () => {
