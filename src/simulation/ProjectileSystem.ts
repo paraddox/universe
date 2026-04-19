@@ -74,10 +74,13 @@ export class ProjectileSystem {
 
       for (const target of targets) {
         if (!target.isActive() || target.teamId === p.ownerId) continue;
-        const hitT = segmentSphereHit(start, end, target.position, target.radius);
-        if (hitT !== null && hitT < nearestT) {
-          nearestT = hitT;
-          nearestTarget = target;
+
+        for (const hitSphere of target.getHitSpheres()) {
+          const hitT = segmentSphereHit(start, end, hitSphere.center, hitSphere.radius);
+          if (hitT !== null && hitT < nearestT) {
+            nearestT = hitT;
+            nearestTarget = target;
+          }
         }
       }
 

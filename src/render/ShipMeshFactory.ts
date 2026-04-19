@@ -4,9 +4,28 @@ import type { ShipHull } from '../simulation/ShipHull.js';
 import { SHIP_MODEL_CONFIGS, prepareLoadedShipModel } from './ShipModelManifest.js';
 
 const VISUAL_ROOT_NAME = 'ship-visual-root';
+const THRUSTER_CORE_NAME = 'ship-thruster-core';
+const THRUSTER_PLUME_NAME = 'ship-thruster-plume';
+
+interface ThrusterVisualState {
+  core: THREE.Mesh;
+  coreMaterial: THREE.MeshBasicMaterial;
+  plume: THREE.Mesh;
+  plumeMaterial: THREE.MeshBasicMaterial;
+  baseCoreScale: number;
+  basePlumeScale: THREE.Vector3;
+}
 
 function createHardpointName(id: string): string {
   return `hardpoint:${id}`;
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function lerp(start: number, end: number, alpha: number): number {
+  return start + (end - start) * alpha;
 }
 
 function disposeObject3D(object: THREE.Object3D): void {
@@ -37,6 +56,7 @@ export class ShipMeshFactory {
     group.add(visualRoot);
 
     this.addDirectionMarkers(group, hull);
+    this.addThrusterVisuals(group, hull);
 
     const fallback = this.createProceduralShipVisual(hull);
     visualRoot.add(fallback);
@@ -47,6 +67,7 @@ export class ShipMeshFactory {
       });
     }
 
+    this.updateThrusterVisuals(group, 0, 0);
     return group;
   }
 
@@ -65,6 +86,44 @@ export class ShipMeshFactory {
         mat.emissiveIntensity = 0;
       }
     }
+  }
+
+  updateThrusterVisuals(group: THREE.Group, thrustLevel: number, elapsedTime: number): void {
+    const thrusterState = group.userData.thrusterVisuals as ThrusterVisualState | undefined;
+    if (!thrusterState) {
+      return;
+    }
+
+    const thrust = clamp(thrustLevel, 0, 1);
+    const drive = lerp(0.16, 1, thrust);
+    const flicker = thrust > 0
+      ? 0.94 + Math.sin(elapsedTime * 27) * 0.04 + Math.sin(elapsedTime * 41) * 0.02
+      : 1;
+    const intensity = clamp(drive * flicker, 0, 1.1);
+
+    thrusterState.coreMaterial.opacity = lerp(0.22, 0.92, intensity);
+    thrusterState.plumeMaterial.opacity = lerp(0.08, 0.58, intensity);
+
+    thrusterState.coreMaterial.color.setRGB(
+      lerp(0.35, 0.95, intensity),
+      lerp(0.7, 0.98, intensity),
+      1,
+    );
+    thrusterState.plumeMaterial.color.setRGB(
+      lerp(0.22, 0.7, intensity),
+      lerp(0.45, 0.88, intensity),
+      1,
+    );
+
+    const coreScale = thrusterState.baseCoreScale * lerp(0.82, 1.28, intensity);
+    thrusterState.core.scale.setScalar(coreScale);
+    thrusterState.plume.scale.set(
+      thrusterState.basePlumeScale.x * lerp(0.7, 1.15, intensity),
+      thrusterState.basePlumeScale.y * lerp(0.7, 1.15, intensity),
+      thrusterState.basePlumeScale.z * lerp(0.55, 2.4, intensity),
+    );
+    thrusterState.plume.rotation.z = elapsedTime * lerp(0.8, 8.5, intensity);
+    thrusterState.plume.rotation.x = elapsedTime * lerp(0.4, 2.2, intensity);
   }
 
   dispose(): void {
@@ -100,6 +159,52 @@ export class ShipMeshFactory {
     }
   }
 
+  private addThrusterVisuals(group: THREE.Group, hull: ShipHull): void {
+    const { length, width, height } = hull.dimensions;
+    const coreRadius = Math.max(0.16, Math.min(width, height) * 0.12);
+    const plumeRadius = Math.max(0.22, Math.min(width, height) * 0.18);
+    const basePlumeScale = new THREE.Vector3(
+      plumeRadius,
+      plumeRadius,
+      Math.max(0.7, length * 0.16),
+    );
+
+    const coreMaterial = new THREE.MeshBasicMaterial({
+      color: 0x7fd4ff,
+      transparent: true,
+      opacity: 0.22,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const core = new THREE.Mesh(new THREE.IcosahedronGeometry(1, 0), coreMaterial);
+    core.name = THRUSTER_CORE_NAME;
+    core.position.set(0, 0, -length * 0.53);
+    core.scale.setScalar(coreRadius);
+    group.add(core);
+
+    const plumeMaterial = new THREE.MeshBasicMaterial({
+      color: 0x4ca6ff,
+      transparent: true,
+      opacity: 0.08,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+    });
+    const plume = new THREE.Mesh(new THREE.DodecahedronGeometry(1, 0), plumeMaterial);
+    plume.name = THRUSTER_PLUME_NAME;
+    plume.position.set(0, 0, -length * 0.68);
+    plume.scale.copy(basePlumeScale);
+    group.add(plume);
+
+    group.userData.thrusterVisuals = {
+      core,
+      coreMaterial,
+      plume,
+      plumeMaterial,
+      baseCoreScale: coreRadius,
+      basePlumeScale,
+    } satisfies ThrusterVisualState;
+  }
+
   private async populateImportedVisual(root: THREE.Group, hull: ShipHull): Promise<void> {
     const config = SHIP_MODEL_CONFIGS[hull.hullClass];
     if (!config) {
@@ -114,6 +219,10 @@ export class ShipMeshFactory {
       disposeObject3D(child);
     }
     root.add(clone);
+
+    const ownerGroup = root.parent;
+    const onVisualRootReplaced = ownerGroup?.userData.onVisualRootReplaced as (() => void) | undefined;
+    onVisualRootReplaced?.();
   }
 
   private loadPreparedModel(hull: ShipHull): Promise<THREE.Group> {

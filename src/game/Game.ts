@@ -22,6 +22,7 @@ import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
 import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
 import { createEnemyShipTargetMesh, updateEnemyShipTargetMesh } from '../render/EnemyShipTargetMesh.js';
+import { ForwardGunCrosshairOverlay } from '../render/ForwardGunCrosshair.js';
 
 interface ProjectileVisual {
   meshId: number;
@@ -63,6 +64,7 @@ export class Game {
   private enemyShips: ShipCombatant[] = [];
   private enemyAIs: EnemyShipAI[] = [];
   private targetVisuals: Map<string, TargetVisual> = new Map();
+  private crosshair: ForwardGunCrosshairOverlay;
 
   private running = false;
 
@@ -70,6 +72,7 @@ export class Game {
     this.renderer = new GameRenderer(canvas);
     this.input = new InputManager();
     this.input.attach(canvas);
+    this.crosshair = new ForwardGunCrosshairOverlay();
 
     // Create player ship — Fighter with 4 light kinetic cannons
     const hull = createHull('fighter');
@@ -249,6 +252,7 @@ export class Game {
 
     const now = performance.now();
     const dt = Math.min((now - this.lastTime) / 1000, 0.05);
+    const elapsedTime = now / 1000;
     this.lastTime = now;
 
     // Input
@@ -339,6 +343,11 @@ export class Game {
     const q = this.syncQuaternion();
     this.playerMesh.quaternion.copy(q);
     this.playerMesh.visible = this.playerShip.isActive();
+    this.renderer.shipMeshFactory.updateThrusterVisuals(
+      this.playerMesh,
+      this.playerShip.isActive() ? this.thrustLevel : 0,
+      elapsedTime,
+    );
 
     // Sync target visuals
     for (const target of this.targets) {
@@ -350,7 +359,13 @@ export class Game {
     for (const ship of this.enemyShips) {
       const visual = this.targetVisuals.get(ship.id);
       if (!visual) continue;
-      updateEnemyShipTargetMesh(visual.object as import('three').Group, ship);
+      const shipGroup = visual.object as import('three').Group;
+      updateEnemyShipTargetMesh(shipGroup, ship);
+      this.renderer.shipMeshFactory.updateThrusterVisuals(
+        shipGroup,
+        ship.isActive() ? ship.controller.thrust : 0,
+        elapsedTime,
+      );
     }
 
     // Camera
@@ -358,6 +373,12 @@ export class Game {
       this.playerMesh.position,
       q,
     );
+
+    if (this.playerShip.isActive()) {
+      this.crosshair.update(this.renderer.camera, this.playerShip.hull);
+    } else {
+      this.crosshair.hide();
+    }
 
     this.updateDebugHUD();
     this.renderer.render();
@@ -420,6 +441,7 @@ export class Game {
   dispose(): void {
     this.stop();
     this.input.detach();
+    this.crosshair.dispose();
 
     this.targetVisuals.forEach((visual) => {
       this.renderer.scene.remove(visual.object);

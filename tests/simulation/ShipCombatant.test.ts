@@ -133,4 +133,63 @@ describe('ProjectileSystem ship combatant collisions', () => {
     expect(hits).toHaveLength(1);
     expect(hits[0]?.targetId).toBe('player');
   });
+
+  it('uses ship-shaped hit volumes so shots through empty space above the hull miss', () => {
+    const hull = createHull('fighter');
+    hull.id = 'enemy-hull';
+    hull.position = { x: 0, y: 0, z: 10 };
+    const ship = new ShipCombatant({
+      id: 'enemy-1',
+      hull,
+      radius: 5,
+      maxHealth: 40,
+      teamId: 'enemy',
+    });
+
+    const projectile = new Projectile({
+      position: { x: 0, y: 4, z: 0 },
+      velocity: { x: 0, y: 0, z: 20 },
+      damage: 5,
+      ownerId: 'player',
+      maxAge: 10,
+    });
+
+    const system = new ProjectileSystem();
+    system.add(projectile);
+    const hits = system.update(1, [ship]);
+
+    expect(ship.health).toBe(40);
+    expect(hits).toHaveLength(0);
+    expect(system.count()).toBe(1);
+  });
+
+  it('can still hit ship wing volumes that sit away from the centerline', () => {
+    const hull = createHull('fighter');
+    hull.id = 'enemy-hull';
+    hull.position = { x: 0, y: 0, z: 10 };
+    const ship = new ShipCombatant({
+      id: 'enemy-1',
+      hull,
+      radius: 1,
+      maxHealth: 40,
+      teamId: 'enemy',
+    });
+
+    const projectile = new Projectile({
+      position: { x: 2.8, y: 0, z: 0 },
+      velocity: { x: 0, y: 0, z: 20 },
+      damage: 5,
+      ownerId: 'player',
+      maxAge: 10,
+    });
+
+    const system = new ProjectileSystem();
+    system.add(projectile);
+    const hits = system.update(1, [ship]);
+
+    expect(ship.health).toBe(35);
+    expect(hits).toHaveLength(1);
+    expect(hits[0]?.targetId).toBe('enemy-1');
+    expect(system.count()).toBe(0);
+  });
 });

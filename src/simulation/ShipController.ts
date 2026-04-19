@@ -64,6 +64,8 @@ export class ShipController {
   }
 
   update(dt: number): { projectiles: ProjectileData[] } {
+    const launchPlatformVelocity = { ...this.hull.velocity };
+
     // Apply local-axis rotations via quaternion composition
     const turnDelta = this.hull.turnRate * dt;
     if (this.yawInput !== 0) {
@@ -147,7 +149,14 @@ export class ShipController {
             hp.orientation.z,
           );
           const worldDirection = this.hull.orientation.rotateVector(localDirection);
-          const fired = weapon.fire(origin, worldDirection);
+          const fired = weapon.fire(origin, worldDirection).map((projectile) => ({
+            ...projectile,
+            velocity: {
+              x: projectile.velocity.x + launchPlatformVelocity.x,
+              y: projectile.velocity.y + launchPlatformVelocity.y,
+              z: projectile.velocity.z + launchPlatformVelocity.z,
+            },
+          }));
           projectiles.push(...fired);
         }
       }

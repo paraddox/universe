@@ -25,6 +25,42 @@ describe('ShipMeshFactory', () => {
     expect(engine.position.z).toBeLessThan(0);
   });
 
+  it('creates thruster visuals behind the rear engine marker', () => {
+    const factory = new ShipMeshFactory();
+    const hull = createHull('fighter');
+
+    const group = factory.createShipMesh(hull);
+
+    const engine = findChild(group, 'ship-engine-core');
+    const thrusterCore = findChild(group, 'ship-thruster-core');
+    const thrusterPlume = findChild(group, 'ship-thruster-plume');
+
+    expect(thrusterCore.position.z).toBeLessThan(engine.position.z);
+    expect(thrusterPlume.position.z).toBeLessThan(thrusterCore.position.z);
+  });
+
+  it('scales thruster plume and glow intensity with thrust level', () => {
+    const factory = new ShipMeshFactory();
+    const hull = createHull('fighter');
+
+    const group = factory.createShipMesh(hull);
+    const thrusterCore = findChild(group, 'ship-thruster-core') as THREE.Mesh;
+    const thrusterPlume = findChild(group, 'ship-thruster-plume') as THREE.Mesh;
+    const coreMaterial = thrusterCore.material as THREE.MeshBasicMaterial;
+    const plumeMaterial = thrusterPlume.material as THREE.MeshBasicMaterial;
+
+    factory.updateThrusterVisuals(group, 0, 0);
+    const idleCoreOpacity = coreMaterial.opacity;
+    const idlePlumeOpacity = plumeMaterial.opacity;
+    const idlePlumeLength = thrusterPlume.scale.z;
+
+    factory.updateThrusterVisuals(group, 1, 1.25);
+
+    expect(coreMaterial.opacity).toBeGreaterThan(idleCoreOpacity);
+    expect(plumeMaterial.opacity).toBeGreaterThan(idlePlumeOpacity);
+    expect(thrusterPlume.scale.z).toBeGreaterThan(idlePlumeLength);
+  });
+
   it('keeps cockpit and engine cues aligned with simulation forward after arbitrary rotation', () => {
     const factory = new ShipMeshFactory();
     const hull = createHull('fighter');

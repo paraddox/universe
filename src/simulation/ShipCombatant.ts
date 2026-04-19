@@ -1,7 +1,7 @@
 import type { ShipHull } from './ShipHull.js';
 import { ShipController } from './ShipController.js';
 import { Quat } from './Quat.js';
-import type { CombatTarget } from './CombatTarget.js';
+import type { CombatTarget, CollisionSphere } from './CombatTarget.js';
 import type { Vec3 } from './WeaponModule.js';
 
 export interface ShipCombatantConfig {
@@ -137,6 +137,34 @@ export class ShipCombatant implements CombatTarget {
 
   getRecentDamageAmount(): number {
     return this.recentDamageAmount;
+  }
+
+  getHitSpheres(): CollisionSphere[] {
+    const { length, width, height } = this.hull.dimensions;
+    const fuselageRadius = Math.max(height * 0.55, Math.min(width * 0.2, length * 0.16));
+    const noseRadius = Math.max(height * 0.45, width * 0.16);
+    const rearRadius = Math.max(height * 0.45, width * 0.14);
+    const wingRadius = Math.max(height * 0.45, width * 0.15);
+
+    const localSpheres = [
+      { center: { x: 0, y: 0, z: length * 0.32 }, radius: noseRadius },
+      { center: { x: 0, y: 0, z: 0 }, radius: fuselageRadius },
+      { center: { x: 0, y: 0, z: -length * 0.22 }, radius: rearRadius },
+      { center: { x: -width * 0.38, y: 0, z: length * 0.05 }, radius: wingRadius },
+      { center: { x: width * 0.38, y: 0, z: length * 0.05 }, radius: wingRadius },
+    ];
+
+    return localSpheres.map(({ center, radius }) => {
+      const rotatedCenter = this.hull.orientation.rotateVector(center);
+      return {
+        center: {
+          x: this.position.x + rotatedCenter.x,
+          y: this.position.y + rotatedCenter.y,
+          z: this.position.z + rotatedCenter.z,
+        },
+        radius,
+      };
+    });
   }
 
   private resetControls(): void {

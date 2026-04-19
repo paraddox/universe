@@ -46,6 +46,7 @@ export class InputManager {
   private boundMouseUp: () => void;
   private boundWheel: (e: WheelEvent) => void;
   private boundPointerLockChange: () => void;
+  private boundCanvasClick: () => void;
 
   constructor() {
     this.boundKeyDown = this.onKeyDown.bind(this);
@@ -55,10 +56,14 @@ export class InputManager {
     this.boundMouseUp = this.onMouseUp.bind(this);
     this.boundWheel = this.onWheel.bind(this);
     this.boundPointerLockChange = this.onPointerLockChange.bind(this);
+    this.boundCanvasClick = this.onCanvasClick.bind(this);
   }
 
   attach(canvas: HTMLCanvasElement): void {
     this.canvas = canvas;
+    if (canvas.tabIndex < 0) {
+      canvas.tabIndex = 0;
+    }
     document.addEventListener('keydown', this.boundKeyDown);
     document.addEventListener('keyup', this.boundKeyUp);
     document.addEventListener('mousemove', this.boundMouseMove);
@@ -67,11 +72,7 @@ export class InputManager {
     document.addEventListener('wheel', this.boundWheel, { passive: false });
     document.addEventListener('pointerlockchange', this.boundPointerLockChange);
 
-    canvas.addEventListener('click', () => {
-      if (!this.pointerLocked) {
-        canvas.requestPointerLock();
-      }
-    });
+    canvas.addEventListener('click', this.boundCanvasClick);
   }
 
   detach(): void {
@@ -82,6 +83,7 @@ export class InputManager {
     document.removeEventListener('mouseup', this.boundMouseUp);
     document.removeEventListener('wheel', this.boundWheel);
     document.removeEventListener('pointerlockchange', this.boundPointerLockChange);
+    this.canvas?.removeEventListener('click', this.boundCanvasClick);
   }
 
   setKeyboardTurnResponse(value: number): void {
@@ -144,6 +146,13 @@ export class InputManager {
     this.mouseDown = false;
   }
 
+  private onCanvasClick(): void {
+    this.canvas?.focus();
+    if (!this.pointerLocked) {
+      this.canvas?.requestPointerLock();
+    }
+  }
+
   private onWheel(e: WheelEvent): void {
     e.preventDefault();
 
@@ -158,10 +167,19 @@ export class InputManager {
     }
 
     const increaseScrollSign = this.thrustIncreaseScrollSign ?? -1;
+    const increasesThrust = scrollSign === increaseScrollSign;
+    const rawThrustStep = Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY;
+    const shouldForceMinimumEscape = rawThrustStep < MIN_THRUST_SCROLL_STEP && (
+      (this.thrustLevel === 0 && increasesThrust) ||
+      (this.thrustLevel === MAX_THRUST && !increasesThrust)
+    );
 
-    // Scale thrust by actual scroll magnitude, but ensure tiny wheel/trackpad motion can still escape 0%/100%.
-    const thrustStep = Math.max(Math.abs(e.deltaY) * THRUST_SCROLL_SENSITIVITY, MIN_THRUST_SCROLL_STEP);
-    const signedStep = scrollSign === increaseScrollSign ? thrustStep : -thrustStep;
+    // Preserve true proportional wheel scaling once thrust has left the edge,
+    // but still let tiny wheel/trackpad motion escape 0% or 100%.
+    const thrustStep = shouldForceMinimumEscape
+      ? MIN_THRUST_SCROLL_STEP
+      : rawThrustStep;
+    const signedStep = increasesThrust ? thrustStep : -thrustStep;
     const nextThrust = Math.max(0, Math.min(MAX_THRUST, this.thrustLevel + signedStep));
 
     if (this.protectInitialZeroEscape && signedStep < 0 && nextThrust === 0) {

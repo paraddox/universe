@@ -4,6 +4,7 @@ import { CameraController } from '../../src/render/CameraController.js';
 
 const CAMERA_DISTANCE = 15;
 const CAMERA_HEIGHT = 8;
+const CAMERA_FRAMING_PITCH_BIAS = 0.1;
 
 function createExpectedMountRotation(): THREE.Quaternion {
   const yaw180 = new THREE.Quaternion().setFromAxisAngle(
@@ -12,7 +13,7 @@ function createExpectedMountRotation(): THREE.Quaternion {
   );
   const pitchDown = new THREE.Quaternion().setFromAxisAngle(
     new THREE.Vector3(1, 0, 0),
-    -Math.atan2(CAMERA_HEIGHT, CAMERA_DISTANCE),
+    -Math.atan2(CAMERA_HEIGHT, CAMERA_DISTANCE) + CAMERA_FRAMING_PITCH_BIAS,
   );
 
   return yaw180.multiply(pitchDown);
@@ -61,5 +62,20 @@ describe('CameraController', () => {
     expect(camera.position.x).toBeCloseTo(expectedPosition.x, 10);
     expect(camera.position.y).toBeCloseTo(expectedPosition.y, 10);
     expect(camera.position.z).toBeCloseTo(expectedPosition.z, 10);
+  });
+
+  it('frames the ship below screen center to prioritize forward space', () => {
+    const camera = new THREE.PerspectiveCamera(60, 16 / 9, 0.1, 1000);
+    const controller = new CameraController(camera);
+    const shipPosition = new THREE.Vector3(0, 0, 0);
+    const shipQuaternion = new THREE.Quaternion();
+
+    controller.reset(shipPosition, shipQuaternion);
+    camera.updateMatrixWorld(true);
+    camera.updateProjectionMatrix();
+
+    const projectedShip = shipPosition.clone().project(camera);
+
+    expect(projectedShip.y).toBeLessThan(-0.12);
   });
 });

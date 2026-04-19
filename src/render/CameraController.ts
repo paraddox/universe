@@ -2,6 +2,7 @@ import * as THREE from 'three';
 
 const CAMERA_DISTANCE = 15;
 const CAMERA_HEIGHT = 8;
+const CAMERA_FRAMING_PITCH_BIAS = 0.1;
 
 export class CameraController {
   private camera: THREE.PerspectiveCamera;
@@ -18,7 +19,7 @@ export class CameraController {
     );
     const pitchDown = new THREE.Quaternion().setFromAxisAngle(
       new THREE.Vector3(1, 0, 0),
-      -Math.atan2(CAMERA_HEIGHT, CAMERA_DISTANCE),
+      -Math.atan2(CAMERA_HEIGHT, CAMERA_DISTANCE) + CAMERA_FRAMING_PITCH_BIAS,
     );
     this.mountRotation = yaw180.multiply(pitchDown);
   }

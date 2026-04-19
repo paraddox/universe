@@ -112,4 +112,41 @@ describe('ShipController firing direction', () => {
     expect(Math.abs(vel.y)).toBeLessThan(1);
     expect(Math.abs(vel.z)).toBeLessThan(1);
   });
+
+  it('inherits ship lateral velocity when firing forward', () => {
+    const hull = makeFighterHull();
+    hull.velocity = { x: 15, y: 0, z: 0 };
+    hull.addHardpoint(new Hardpoint('wp', { x: 0, y: 0, z: 1 }, { x: 0, y: 0, z: 0 }, 'weapon'));
+    hull.mountWeapon('wp', new KineticCannon('light', 'player'));
+
+    const ctrl = new ShipController(hull);
+    ctrl.setFiring(true);
+    const result = ctrl.update(0.01);
+
+    expect(result.projectiles.length).toBe(1);
+    const vel = result.projectiles[0].velocity;
+    expect(vel.x).toBeCloseTo(15, 10);
+    expect(vel.z).toBeGreaterThan(70);
+  });
+
+  it('inherits ship forward velocity when firing sideways from an angled hardpoint', () => {
+    const hull = makeFighterHull();
+    hull.velocity = { x: 0, y: 0, z: 20 };
+    hull.addHardpoint(new Hardpoint(
+      'wp',
+      { x: 0, y: 0, z: 1 },
+      { x: 0, y: Math.PI / 2, z: 0 },
+      'weapon',
+    ));
+    hull.mountWeapon('wp', new KineticCannon('light', 'player'));
+
+    const ctrl = new ShipController(hull);
+    ctrl.setFiring(true);
+    const result = ctrl.update(0.01);
+
+    expect(result.projectiles.length).toBe(1);
+    const vel = result.projectiles[0].velocity;
+    expect(vel.x).toBeGreaterThan(70);
+    expect(vel.z).toBeCloseTo(20, 10);
+  });
 });

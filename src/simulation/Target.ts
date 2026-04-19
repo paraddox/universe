@@ -1,4 +1,4 @@
-import type { CombatTarget } from './CombatTarget.js';
+import type { CombatTarget, CollisionSphere } from './CombatTarget.js';
 import type { Vec3 } from './WeaponModule.js';
 
 export interface TargetConfig {
@@ -106,5 +106,12 @@ export class Target implements CombatTarget {
 
   getRecentDamageAmount(): number {
     return this.recentDamageAmount;
+  }
+
+  getHitSpheres(): CollisionSphere[] {
+    return [{
+      center: { ...this.position },
+      radius: this.radius,
+    }];
   }
 }
