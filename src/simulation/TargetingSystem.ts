@@ -7,7 +7,7 @@ import type { Vec3 } from './WeaponModule.js';
 const DEFAULT_FORWARD_WEAPON_RANGE = 100;
 const DEFAULT_FORWARD_WEAPON_PROJECTILE_SPEED = 240;
 const FORWARD_WEAPON_DOT_THRESHOLD = 0.95;
-const FIXED_GUN_MAX_DEFLECTION_RADIANS = Math.PI / 12;
+const FIXED_GUN_TRACKING_ARC_RADIANS = Math.PI / 4;
 
 export interface AimSolution {
   aimPoint: Vec3;
@@ -210,7 +210,7 @@ export function getFixedWeaponFireDirection(
   hull: ShipHull,
   hardpoint: Hardpoint,
   aimPoint: Vec3,
-  maxDeflectionRadians: number = FIXED_GUN_MAX_DEFLECTION_RADIANS,
+  maxDeflectionRadians: number = FIXED_GUN_TRACKING_ARC_RADIANS,
 ): Vec3 {
   const baseDirection = getHardpointBaseWorldDirection(hull, hardpoint);
   const origin = getHardpointWorldOrigin(hull, hardpoint);
