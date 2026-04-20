@@ -56,6 +56,21 @@ export const SHIP_MODEL_CONFIGS: Record<string, ShipModelConfig> = {
   },
 };
 
+export const PLAYER_SHIP_MODEL_CONFIG: ShipModelConfig = {
+  path: '/assets/models/ships/main-fighter.glb',
+  sourcePage: 'local-user-provided-asset',
+  title: 'Main Fighter',
+  author: 'User-provided',
+  license: 'User-provided (pending source confirmation)',
+};
+
+export function getShipModelConfig(
+  hullClass: string,
+  override?: ShipModelConfig,
+): ShipModelConfig | undefined {
+  return override ?? SHIP_MODEL_CONFIGS[hullClass];
+}
+
 export function prepareLoadedShipModel(
   object: THREE.Object3D,
   hull: ShipHull,

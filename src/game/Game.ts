@@ -21,6 +21,7 @@ import { EnemyShipAI } from '../simulation/EnemyShipAI.js';
 import { createHull } from '../data/hulls.js';
 import { KineticCannon } from '../simulation/KineticCannon.js';
 import { createTargetMesh, updateTargetMesh } from '../render/TargetMesh.js';
+import { PLAYER_SHIP_MODEL_CONFIG } from '../render/ShipModelManifest.js';
 import { createEnemyShipTargetMesh, updateEnemyShipTargetMesh } from '../render/EnemyShipTargetMesh.js';
 import { TargetingCrosshairOverlay, projectAimPointCrosshair } from '../render/TargetingCrosshair.js';
 import { shouldRenderProjectileVisual } from '../render/ProjectileVisibility.js';
@@ -104,6 +105,7 @@ export class Game {
   private spawnPlayerMesh(): void {
     this.playerMesh = this.renderer.shipMeshFactory.createShipMesh(
       this.playerShip.hull,
+      { modelConfigOverride: PLAYER_SHIP_MODEL_CONFIG },
     );
 
     // Add forward direction indicator (bright green line pointing forward)

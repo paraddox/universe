@@ -16,6 +16,12 @@ All imported ship models currently used by Universe are free and license-compati
 | cruiser | `public/assets/models/ships/cruiser-quaternius-d.glb` | https://poly.pizza/m/PQzePrvBCD | Quaternius | CC0 |
 | battlecruiser | `public/assets/models/ships/battlecruiser-quaternius-e.glb` | https://poly.pizza/m/Jqfed124pQ | Quaternius | CC0 |
 
+## Player ship override
+
+| Use | Local asset | Source | Author | License |
+|---|---|---|---|---|
+| player fighter override | `public/assets/models/ships/main-fighter.glb` | local user-provided asset | user-provided | pending confirmation |
+
 ## Notes
 - Assets are loaded at runtime with `GLTFLoader`.
 - Models are normalized automatically to each hull class length in `src/render/ShipModelManifest.ts`.

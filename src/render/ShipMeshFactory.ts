@@ -1,7 +1,11 @@
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
 import type { ShipHull } from '../simulation/ShipHull.js';
-import { SHIP_MODEL_CONFIGS, prepareLoadedShipModel } from './ShipModelManifest.js';
+import {
+  getShipModelConfig,
+  prepareLoadedShipModel,
+  type ShipModelConfig,
+} from './ShipModelManifest.js';
 
 const VISUAL_ROOT_NAME = 'ship-visual-root';
 const THRUSTER_CORE_NAME = 'ship-thruster-core';
@@ -44,12 +48,16 @@ function disposeObject3D(object: THREE.Object3D): void {
   });
 }
 
+interface CreateShipMeshOptions {
+  modelConfigOverride?: ShipModelConfig;
+}
+
 export class ShipMeshFactory {
   private materialCache: Map<string, THREE.MeshStandardMaterial> = new Map();
   private loader = new GLTFLoader();
   private modelCache: Map<string, Promise<THREE.Group>> = new Map();
 
-  createShipMesh(hull: ShipHull): THREE.Group {
+  createShipMesh(hull: ShipHull, options: CreateShipMeshOptions = {}): THREE.Group {
     const group = new THREE.Group();
     const visualRoot = new THREE.Group();
     visualRoot.name = VISUAL_ROOT_NAME;
@@ -62,7 +70,7 @@ export class ShipMeshFactory {
     visualRoot.add(fallback);
 
     if (typeof window !== 'undefined') {
-      void this.populateImportedVisual(visualRoot, hull).catch((error) => {
+      void this.populateImportedVisual(visualRoot, hull, options.modelConfigOverride).catch((error) => {
         console.warn(`Failed to load ship model for ${hull.hullClass}:`, error);
       });
     }
@@ -205,13 +213,17 @@ export class ShipMeshFactory {
     } satisfies ThrusterVisualState;
   }
 
-  private async populateImportedVisual(root: THREE.Group, hull: ShipHull): Promise<void> {
-    const config = SHIP_MODEL_CONFIGS[hull.hullClass];
+  private async populateImportedVisual(
+    root: THREE.Group,
+    hull: ShipHull,
+    modelConfigOverride?: ShipModelConfig,
+  ): Promise<void> {
+    const config = getShipModelConfig(hull.hullClass, modelConfigOverride);
     if (!config) {
       return;
     }
 
-    const template = await this.loadPreparedModel(hull);
+    const template = await this.loadPreparedModel(hull, config);
     const clone = template.clone(true);
 
     for (const child of [...root.children]) {
@@ -225,20 +237,16 @@ export class ShipMeshFactory {
     onVisualRootReplaced?.();
   }
 
-  private loadPreparedModel(hull: ShipHull): Promise<THREE.Group> {
-    const config = SHIP_MODEL_CONFIGS[hull.hullClass];
-    if (!config) {
-      return Promise.resolve(this.createProceduralShipVisual(hull));
-    }
-
-    if (!this.modelCache.has(hull.hullClass)) {
+  private loadPreparedModel(hull: ShipHull, config: ShipModelConfig): Promise<THREE.Group> {
+    const cacheKey = `${config.path}::${hull.dimensions.length}::${config.scale ?? 1}::${config.rotation?.x ?? 0},${config.rotation?.y ?? 0},${config.rotation?.z ?? 0}`;
+    if (!this.modelCache.has(cacheKey)) {
       this.modelCache.set(
-        hull.hullClass,
+        cacheKey,
         this.loader.loadAsync(config.path).then((gltf) => prepareLoadedShipModel(gltf.scene, hull, config)),
       );
     }
 
-    return this.modelCache.get(hull.hullClass)!;
+    return this.modelCache.get(cacheKey)!;
   }
 
   private createProceduralShipVisual(hull: ShipHull): THREE.Group {

@@ -1,7 +1,12 @@
 import { describe, it, expect } from 'vitest';
 import * as THREE from 'three';
 import { createHull, HULL_CLASSES } from '../../src/data/hulls.js';
-import { SHIP_MODEL_CONFIGS, prepareLoadedShipModel } from '../../src/render/ShipModelManifest.js';
+import {
+  getShipModelConfig,
+  PLAYER_SHIP_MODEL_CONFIG,
+  SHIP_MODEL_CONFIGS,
+  prepareLoadedShipModel,
+} from '../../src/render/ShipModelManifest.js';
 
 describe('ShipModelManifest', () => {
   it('provides a local GLB asset config for every supported hull class', () => {
@@ -11,6 +16,17 @@ describe('ShipModelManifest', () => {
       expect(config.path.startsWith('/assets/models/ships/')).toBe(true);
       expect(config.path.endsWith('.glb')).toBe(true);
     }
+  });
+
+  it('exposes a local GLB override config for the player ship model', () => {
+    expect(PLAYER_SHIP_MODEL_CONFIG.path).toBe('/assets/models/ships/main-fighter.glb');
+    expect(PLAYER_SHIP_MODEL_CONFIG.path.endsWith('.glb')).toBe(true);
+    expect(PLAYER_SHIP_MODEL_CONFIG.title).toBe('Main Fighter');
+  });
+
+  it('prefers an explicit ship model override over the hull-class default config', () => {
+    expect(getShipModelConfig('fighter')).toBe(SHIP_MODEL_CONFIGS.fighter);
+    expect(getShipModelConfig('fighter', PLAYER_SHIP_MODEL_CONFIG)).toBe(PLAYER_SHIP_MODEL_CONFIG);
   });
 
   it('centers and scales loaded ship geometry to match the target hull length', () => {
