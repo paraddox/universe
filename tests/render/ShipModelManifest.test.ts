@@ -18,10 +18,11 @@ describe('ShipModelManifest', () => {
     }
   });
 
-  it('exposes a local GLB override config for the player ship model', () => {
+  it('exposes a local GLB override config for the player ship model with the corrective forward-facing rotation', () => {
     expect(PLAYER_SHIP_MODEL_CONFIG.path).toBe('/assets/models/ships/main-fighter.glb');
     expect(PLAYER_SHIP_MODEL_CONFIG.path.endsWith('.glb')).toBe(true);
     expect(PLAYER_SHIP_MODEL_CONFIG.title).toBe('Main Fighter');
+    expect(PLAYER_SHIP_MODEL_CONFIG.rotation).toEqual({ x: 0, y: -(Math.PI / 2), z: 0 });
   });
 
   it('prefers an explicit ship model override over the hull-class default config', () => {

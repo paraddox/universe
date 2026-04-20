@@ -62,6 +62,7 @@ export const PLAYER_SHIP_MODEL_CONFIG: ShipModelConfig = {
   title: 'Main Fighter',
   author: 'User-provided',
   license: 'User-provided (pending source confirmation)',
+  rotation: { x: 0, y: -(Math.PI / 2), z: 0 },
 };
 
 export function getShipModelConfig(
